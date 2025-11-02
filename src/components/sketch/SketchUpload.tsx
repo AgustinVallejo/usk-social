@@ -39,6 +39,43 @@ export function SketchUpload({ onSuccess, onCancel }: SketchUploadProps) {
     }
   }, [])
 
+  // Update fields when event is selected/deselected
+  useEffect(() => {
+    if (selectedEventId) {
+      // Find the selected event
+      const selectedEvent = events.find((event: Event) => event.id === selectedEventId)
+      if (selectedEvent) {
+        // Populate fields from event
+        if (selectedEvent.event_date) {
+          setSketchDate(selectedEvent.event_date.split('T')[0]) // Extract date part if it's a datetime
+        }
+        setLatitude(selectedEvent.latitude.toString())
+        setLongitude(selectedEvent.longitude.toString())
+        setLocationName(selectedEvent.location_name || '')
+      }
+    } else {
+      // Reset to defaults when no event is selected
+      setSketchDate(new Date().toISOString().split('T')[0])
+      // Reset coordinates to user's location if available, otherwise empty
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            setLatitude(position.coords.latitude.toString())
+            setLongitude(position.coords.longitude.toString())
+          },
+          () => {
+            setLatitude('')
+            setLongitude('')
+          }
+        )
+      } else {
+        setLatitude('')
+        setLongitude('')
+      }
+      setLocationName('')
+    }
+  }, [selectedEventId, events])
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -201,70 +238,6 @@ export function SketchUpload({ onSuccess, onCancel }: SketchUploadProps) {
         </div>
 
         <div>
-          <label htmlFor="sketchDate" className="block text-sm font-medium text-gray-700 mb-1">
-            Sketch Date
-          </label>
-          <input
-            id="sketchDate"
-            type="date"
-            value={sketchDate}
-            onChange={(e) => setSketchDate(e.target.value)}
-            className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="latitude" className="block text-sm font-medium text-gray-700 mb-1">
-              Latitude <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="latitude"
-              type="number"
-              step="any"
-              value={latitude}
-              onChange={(e) => setLatitude(e.target.value)}
-              required
-              min={-90}
-              max={90}
-              className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
-              placeholder="6.2476"
-            />
-          </div>
-          <div>
-            <label htmlFor="longitude" className="block text-sm font-medium text-gray-700 mb-1">
-              Longitude <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="longitude"
-              type="number"
-              step="any"
-              value={longitude}
-              onChange={(e) => setLongitude(e.target.value)}
-              required
-              min={-180}
-              max={180}
-              className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
-              placeholder="-75.5658"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label htmlFor="locationName" className="block text-sm font-medium text-gray-700 mb-1">
-            Location Name
-          </label>
-          <input
-            id="locationName"
-            type="text"
-            value={locationName}
-            onChange={(e) => setLocationName(e.target.value)}
-            className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
-            placeholder="Central Park, NYC"
-          />
-        </div>
-
-        <div>
           <label htmlFor="event" className="block text-sm font-medium text-gray-700 mb-1">
             Associate with Event (Optional)
           </label>
@@ -282,6 +255,74 @@ export function SketchUpload({ onSuccess, onCancel }: SketchUploadProps) {
             ))}
           </select>
         </div>
+
+        {!selectedEventId && (
+          <>
+            <div>
+              <label htmlFor="sketchDate" className="block text-sm font-medium text-gray-700 mb-1">
+                Sketch Date
+              </label>
+              <input
+                id="sketchDate"
+                type="date"
+                value={sketchDate}
+                onChange={(e) => setSketchDate(e.target.value)}
+                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="latitude" className="block text-sm font-medium text-gray-700 mb-1">
+                  Latitude <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="latitude"
+                  type="number"
+                  step="any"
+                  value={latitude}
+                  onChange={(e) => setLatitude(e.target.value)}
+                  required
+                  min={-90}
+                  max={90}
+                  className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
+                  placeholder="6.2476"
+                />
+              </div>
+              <div>
+                <label htmlFor="longitude" className="block text-sm font-medium text-gray-700 mb-1">
+                  Longitude <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="longitude"
+                  type="number"
+                  step="any"
+                  value={longitude}
+                  onChange={(e) => setLongitude(e.target.value)}
+                  required
+                  min={-180}
+                  max={180}
+                  className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
+                  placeholder="-75.5658"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="locationName" className="block text-sm font-medium text-gray-700 mb-1">
+                Location Name
+              </label>
+              <input
+                id="locationName"
+                type="text"
+                value={locationName}
+                onChange={(e) => setLocationName(e.target.value)}
+                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
+                placeholder="Central Park, NYC"
+              />
+            </div>
+          </>
+        )}
 
         <div className="flex space-x-4">
           {onCancel && (
