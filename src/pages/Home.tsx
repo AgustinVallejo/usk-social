@@ -26,22 +26,22 @@ export function Home() {
       {/* Hero Section */}
       <div className="bg-gray-200 border-b border-gray-300 py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-5xl font-bold mb-4 text-gray-800">Welcome to USK Social</h1>
+          <h1 className="text-5xl font-bold mb-4 text-gray-800">Bienvenido a USK Social</h1>
           <p className="text-xl mb-8 text-gray-600">
-            Connect with Urban Sketchers worldwide. Share your artwork and discover inspiring sketches from around the globe.
+            Un espacio interactivo para compartir y disfrutar nuestras creaciones alrededor del mundo.
           </p>
           <div className="space-x-4">
             <button
               onClick={() => setShowCreateEvent(true)}
               className="bg-gray-700 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-800 transition-colors shadow-md"
             >
-              Create Event
+              Crear Evento
             </button>
             <button
               onClick={() => setShowUpload(true)}
               className="bg-gray-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-700 transition-colors shadow-md"
             >
-              Upload Your Sketch
+              Subir un Sketch
             </button>
           </div>
         </div>
@@ -121,7 +121,7 @@ export function Home() {
         {/* Featured Meetups */}
         {recentEvents.length > 0 && (
           <section className="mb-12">
-            <h2 className="text-3xl font-bold text-gray-800 mb-6">Featured Meetups</h2>
+            <h2 className="text-3xl font-bold text-gray-800 mb-6">Encuentros Destacados</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {recentEvents.map((event) => (
                 <div
@@ -151,7 +151,7 @@ export function Home() {
         {recentSketches.length > 0 && (
           <section>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-3xl font-bold text-gray-800">Recent Sketches</h2>
+              <h2 className="text-3xl font-bold text-gray-800">Sketches Recientes</h2>
               <Link
                 to="/map"
                 className="text-gray-700 hover:text-gray-900 font-medium"

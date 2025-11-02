@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useUsername } from '@/hooks/useUsername'
 import { supabase } from '@/lib/supabaseClient'
 import type { Sketch } from '@/lib/types'
@@ -76,9 +76,20 @@ export function SketchModal({ sketch, onClose, onUpdate }: SketchModalProps) {
               />
             )}
             <div>
-              <p className="font-medium text-gray-800">
-                {sketch.profiles?.username || 'Unknown'}
-              </p>
+              {sketch.profiles?.username ? (
+                <Link
+                  to={`/profile/${sketch.profiles.username}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onClose()
+                  }}
+                  className="font-medium text-gray-800 hover:text-blue-600"
+                >
+                  {sketch.profiles.username}
+                </Link>
+              ) : (
+                <p className="font-medium text-gray-800">Unknown</p>
+              )}
               <p className="text-sm text-gray-500">
                 {new Date(sketch.uploaded_at).toLocaleDateString()}
               </p>

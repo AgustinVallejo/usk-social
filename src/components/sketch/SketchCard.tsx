@@ -23,7 +23,7 @@ export function SketchCard({ sketch, onClick }: SketchCardProps) {
         <h3 className="font-semibold text-gray-800 mb-1 truncate">{sketch.title}</h3>
         {sketch.profiles && (
           <Link
-            to={`/profile/${sketch.user_id}`}
+            to={`/profile/${sketch.profiles.username}`}
             onClick={(e) => e.stopPropagation()}
             className="text-sm text-gray-600 hover:text-blue-600"
           >
@@ -34,7 +34,7 @@ export function SketchCard({ sketch, onClick }: SketchCardProps) {
           <p className="text-xs text-gray-500 mt-1">{sketch.location_name}</p>
         )}
         <p className="text-xs text-gray-400 mt-2">
-          {new Date(sketch.uploaded_at).toLocaleDateString()}
+          {new Date(sketch.sketch_date).toLocaleDateString()}
         </p>
       </div>
     </div>

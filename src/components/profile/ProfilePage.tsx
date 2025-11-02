@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { useUsername } from '@/hooks/useUsername'
 import type { Profile } from '@/lib/types'
 import { UserSketchGallery } from './UserSketchGallery'
 
 export function ProfilePage() {
-  const { userId } = useParams<{ userId?: string }>()
-  const { profile: currentUserProfile } = useUsername()
+  const { username: urlUsername } = useParams<{ username?: string }>()
+  const { profile: currentUserProfile, username: currentUsername } = useUsername()
+  const navigate = useNavigate()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
@@ -19,26 +20,27 @@ export function ProfilePage() {
     country: '',
   })
 
-  const isOwnProfile = !userId || userId === currentUserProfile?.id
+  const targetUsername = urlUsername || currentUsername
+  const isOwnProfile = !urlUsername || (targetUsername && targetUsername.toLowerCase() === currentUsername?.toLowerCase())
 
   useEffect(() => {
     fetchProfile()
-  }, [userId, currentUserProfile])
+  }, [urlUsername, currentUsername])
 
   const fetchProfile = async () => {
     try {
       setLoading(true)
-      const targetUserId = userId || currentUserProfile?.id
-      if (!targetUserId) {
-        console.log('[ProfilePage] No target user ID')
+      const usernameToFetch = urlUsername || currentUsername
+      if (!usernameToFetch) {
+        console.log('[ProfilePage] No target username')
         return
       }
 
-      console.log('[ProfilePage] 📥 Fetching profile for user:', targetUserId)
+      console.log('[ProfilePage] 📥 Fetching profile for username:', usernameToFetch)
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', targetUserId)
+        .eq('username', usernameToFetch.toLowerCase())
         .single()
 
       if (error) {
@@ -102,6 +104,11 @@ export function ProfilePage() {
         .eq('id', profile.id)
 
       if (error) throw error
+
+      // If username changed, redirect to new username URL
+      if (updates.username && updates.username !== profile.username) {
+        navigate(`/profile/${updates.username}`, { replace: true })
+      }
 
       await fetchProfile()
       setIsEditing(false)
