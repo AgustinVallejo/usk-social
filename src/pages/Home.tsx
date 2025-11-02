@@ -66,46 +66,70 @@ export function Home() {
 
       {/* Create Event Modal */}
       {showCreateEvent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-gray-50 rounded-lg max-w-2xl w-full my-8 shadow-lg">
-            <div className="p-4">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowCreateEvent(false)
+            }
+          }}
+        >
+          <div 
+            className="bg-gray-50 rounded-lg max-w-2xl w-full my-12 max-h-[90vh] overflow-y-auto shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-gray-300">
               <button
                 onClick={() => setShowCreateEvent(false)}
-                className="float-right text-gray-500 hover:text-gray-700"
+                className="float-right text-gray-500 hover:text-gray-700 text-xl font-bold"
               >
                 ✕
               </button>
             </div>
-            <EventCreate
-              onSuccess={() => {
-                setShowCreateEvent(false)
-                window.location.reload()
-              }}
-              onCancel={() => setShowCreateEvent(false)}
-            />
+            <div className="p-6">
+              <EventCreate
+                onSuccess={() => {
+                  setShowCreateEvent(false)
+                  window.location.reload()
+                }}
+                onCancel={() => setShowCreateEvent(false)}
+              />
+            </div>
           </div>
         </div>
       )}
 
       {/* Upload Modal */}
       {showUpload && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-gray-50 rounded-lg max-w-2xl w-full my-8 shadow-lg">
-            <div className="p-4">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowUpload(false)
+            }
+          }}
+        >
+          <div 
+            className="bg-gray-50 rounded-lg max-w-2xl w-full my-12 max-h-[90vh] overflow-y-auto shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-gray-300">
               <button
                 onClick={() => setShowUpload(false)}
-                className="float-right text-gray-500 hover:text-gray-700"
+                className="float-right text-gray-500 hover:text-gray-700 text-xl font-bold"
               >
                 ✕
               </button>
             </div>
-            <SketchUpload
-              onSuccess={() => {
-                setShowUpload(false)
-                window.location.reload()
-              }}
-              onCancel={() => setShowUpload(false)}
-            />
+            <div className="p-6">
+              <SketchUpload
+                onSuccess={() => {
+                  setShowUpload(false)
+                  window.location.reload()
+                }}
+                onCancel={() => setShowUpload(false)}
+              />
+            </div>
           </div>
         </div>
       )}

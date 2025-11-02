@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/hooks/useAuth'
+import { MapPicker } from '@/components/common/MapPicker'
 
 interface EventCreateProps {
   onSuccess?: () => void
@@ -12,33 +13,17 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [eventDate, setEventDate] = useState('')
-  const [latitude, setLatitude] = useState('')
-  const [longitude, setLongitude] = useState('')
+  const [latitude, setLatitude] = useState(6.2476)
+  const [longitude, setLongitude] = useState(-75.5658)
   const [locationName, setLocationName] = useState('')
-  const [city, setCity] = useState('')
-  const [country, setCountry] = useState('')
+  const [city, setCity] = useState('Medellín')
+  const [country, setCountry] = useState('Colombia')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    // Default to Medellín, Colombia
-    setLatitude('6.2476')
-    setLongitude('-75.5658')
-    setCity('Medellín')
-    setCountry('Colombia')
-  }, [])
-
-  const validateCoordinates = (lat: string, lng: string): boolean => {
-    const latNum = parseFloat(lat)
-    const lngNum = parseFloat(lng)
-    return (
-      !isNaN(latNum) &&
-      !isNaN(lngNum) &&
-      latNum >= -90 &&
-      latNum <= 90 &&
-      lngNum >= -180 &&
-      lngNum <= 180
-    )
+  const handleLocationSelect = (lat: number, lng: number) => {
+    setLatitude(lat)
+    setLongitude(lng)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,40 +40,49 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
       return
     }
 
-    if (!latitude || !longitude || !validateCoordinates(latitude, longitude)) {
-      setError('Please provide valid coordinates (latitude: -90 to 90, longitude: -180 to 180)')
+    if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
+      setError('Please select a location on the map')
       return
     }
 
     setLoading(true)
 
     try {
-      const { error: insertError } = await supabase
+      const { data, error: insertError } = await supabase
         .from('events')
         .insert({
           title,
           description: description || null,
           event_date: eventDate || null,
-          latitude: parseFloat(latitude),
-          longitude: parseFloat(longitude),
+          latitude: latitude,
+          longitude: longitude,
           location_name: locationName || null,
           city: city || null,
           country: country || null,
           created_by: user.id,
         })
+        .select()
 
-      if (insertError) throw insertError
+      if (insertError) {
+        console.error('Event insert error:', insertError)
+        throw insertError
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error('Event was not created. Please check your database permissions.')
+      }
 
       onSuccess?.()
     } catch (err: any) {
-      setError(err.message || 'Failed to create event')
+      console.error('Event creation error:', err)
+      setError(err.message || err.error_description || 'Failed to create event. Please check console for details.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="max-w-2xl mx-auto bg-gray-50 p-8 rounded-lg shadow-sm border border-gray-300">
+    <div className="w-full">
       <h2 className="text-2xl font-bold mb-6 text-gray-800">Create Event</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
@@ -132,47 +126,25 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
           </label>
           <input
             id="eventDate"
-            type="datetime-local"
+            type="date"
             value={eventDate}
             onChange={(e) => setEventDate(e.target.value)}
             className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="latitude" className="block text-sm font-medium text-gray-700 mb-1">
-              Latitude <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="latitude"
-              type="number"
-              step="any"
-              value={latitude}
-              onChange={(e) => setLatitude(e.target.value)}
-              required
-              min={-90}
-              max={90}
-              className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
-              placeholder="6.2476"
-            />
-          </div>
-          <div>
-            <label htmlFor="longitude" className="block text-sm font-medium text-gray-700 mb-1">
-              Longitude <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="longitude"
-              type="number"
-              step="any"
-              value={longitude}
-              onChange={(e) => setLongitude(e.target.value)}
-              required
-              min={-180}
-              max={180}
-              className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
-              placeholder="-75.5658"
-            />
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Location <span className="text-red-500">*</span>
+          </label>
+          <MapPicker
+            latitude={latitude}
+            longitude={longitude}
+            onLocationSelect={handleLocationSelect}
+            height="300px"
+          />
+          <div className="mt-2 text-xs text-gray-500">
+            Selected: {latitude.toFixed(4)}, {longitude.toFixed(4)}
           </div>
         </div>
 

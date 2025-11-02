@@ -141,7 +141,7 @@ export function SketchUpload({ onSuccess, onCancel }: SketchUploadProps) {
   }
 
   return (
-    <div className="max-w-2xl mx-auto bg-gray-50 p-8 rounded-lg shadow-sm border border-gray-300">
+    <div className="w-full">
       <h2 className="text-2xl font-bold mb-6 text-gray-800">Upload Sketch</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
