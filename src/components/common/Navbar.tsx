@@ -1,33 +1,32 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '@/hooks/useAuth'
+import { Link } from 'react-router-dom'
+import { useUsername } from '@/hooks/useUsername'
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabaseClient'
-import type { Profile } from '@/lib/types'
 
 export function Navbar() {
-  const { user, signOut } = useAuth()
-  const navigate = useNavigate()
-  const [profile, setProfile] = useState<Profile | null>(null)
+  const { username, profile, setUsername, loading } = useUsername()
+  const [inputValue, setInputValue] = useState('')
+  const [isEditing, setIsEditing] = useState(false)
 
+  // Sync inputValue with username when it changes
   useEffect(() => {
-    if (user) {
-      fetchProfile()
-    }
-  }, [user])
+    setInputValue(username)
+  }, [username])
 
-  const fetchProfile = async () => {
-    if (!user) return
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-    setProfile(data)
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = inputValue.trim()
+    if (!trimmed) {
+      alert('Please enter a username')
+      return
+    }
+    console.log('[Navbar] Setting username to:', trimmed)
+    setUsername(trimmed)
+    setIsEditing(false)
   }
 
-  const handleSignOut = async () => {
-    await signOut()
-    navigate('/')
+  const handleCancel = () => {
+    setInputValue(username) // Reset to current username
+    setIsEditing(false)
   }
 
   return (
@@ -37,6 +36,54 @@ export function Navbar() {
           <Link to="/" className="flex items-center">
             <span className="text-2xl font-bold text-gray-800">USK Social</span>
           </Link>
+          
+          {/* Username input in center */}
+          <div className="flex-1 flex justify-center px-4">
+            {isEditing ? (
+              <form 
+                onSubmit={handleSubmit} 
+                className="flex items-center space-x-2 bg-white border border-gray-300 rounded-md shadow-sm p-2"
+              >
+                <input
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  placeholder="Enter username"
+                  className="px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-gray-500 text-gray-900"
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  className="px-3 py-1 text-sm bg-gray-700 text-white rounded hover:bg-gray-800"
+                  disabled={loading}
+                >
+                  {loading ? '...' : 'Set'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="px-3 py-1 text-sm bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+              </form>
+            ) : (
+              <div className="flex items-center space-x-2 bg-white border border-gray-300 rounded-md shadow-sm p-2">
+                <span className="text-sm text-gray-700 px-2">
+                  {loading ? 'Loading...' : (username || 'No username')}
+                </span>
+                <button
+                  onClick={() => {
+                    setInputValue(username || '')
+                    setIsEditing(true)
+                  }}
+                  className="px-3 py-1 text-sm bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+                >
+                  {username ? 'Change' : 'Set Username'}
+                </button>
+              </div>
+            )}
+          </div>
           
           <div className="flex items-center space-x-4">
             <Link
@@ -51,47 +98,14 @@ export function Navbar() {
             >
               Map
             </Link>
-            {user && profile ? (
-              <>
-                <Link
-                  to="/profile"
-                  className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
-                >
-                  Profile
-                </Link>
-                <span className="text-gray-700 px-3 py-2 text-sm font-medium">
-                  {profile.full_name || profile.username}
-                </span>
-                {profile.avatar_url && (
-                  <img
-                    src={profile.avatar_url}
-                    alt={profile.username}
-                    className="w-8 h-8 rounded-full"
-                  />
-                )}
-                <button
-                  onClick={handleSignOut}
-                  className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
-                >
-                  Sign Out
-                </button>
-              </>
-            ) : !user ? (
-              <>
-                <Link
-                  to="/login"
-                  className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
-                >
-                  Login
-                </Link>
-                <Link
-                  to="/signup"
-                  className="bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800"
-                >
-                  Sign Up
-                </Link>
-              </>
-            ) : null}
+            {profile && (
+              <Link
+                to={`/profile/${profile.id}`}
+                className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+              >
+                Profile
+              </Link>
+            )}
           </div>
         </div>
       </div>

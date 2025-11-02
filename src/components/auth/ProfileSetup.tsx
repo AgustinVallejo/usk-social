@@ -42,50 +42,85 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
     }
 
     try {
+      console.log('[ProfileSetup] 👤 Starting profile creation...')
+      console.log('[ProfileSetup] User ID:', user.id)
+      console.log('[ProfileSetup] Username:', username)
+      console.log('[ProfileSetup] Has avatar:', !!avatarFile)
+
       let avatarUrl: string | null = null
 
       // Upload avatar if provided
       if (avatarFile) {
+        console.log('[ProfileSetup] 📤 Uploading avatar...')
+        console.log('[ProfileSetup] Avatar file:', avatarFile.name, `(${(avatarFile.size / 1024).toFixed(2)} KB)`)
         const fileExt = avatarFile.name.split('.').pop()
         const fileName = `${user.id}/${Date.now()}-${Math.random()}.${fileExt}`
         const filePath = `avatars/${fileName}`
 
+        console.log('[ProfileSetup] Avatar file path:', filePath)
         const { error: uploadError } = await supabase.storage
           .from('avatars')
           .upload(filePath, avatarFile)
 
-        if (uploadError) throw uploadError
+        if (uploadError) {
+          console.error('[ProfileSetup] ❌ Avatar upload failed:', uploadError)
+          console.error('[ProfileSetup] Error details:', {
+            message: uploadError.message,
+          })
+          throw uploadError
+        }
+
+        console.log('[ProfileSetup] ✅ Avatar uploaded successfully')
 
         const { data: { publicUrl } } = supabase.storage
           .from('avatars')
           .getPublicUrl(filePath)
 
         avatarUrl = publicUrl
+        console.log('[ProfileSetup] Avatar URL:', avatarUrl)
       }
 
       // Create profile
-      const { error: profileError } = await supabase
+      const profileData = {
+        id: user.id,
+        username,
+        full_name: fullName || null,
+        bio: bio || null,
+        city: city || null,
+        country: country || null,
+        avatar_url: avatarUrl,
+      }
+
+      console.log('[ProfileSetup] 💾 Inserting profile record...')
+      console.log('[ProfileSetup] Profile data:', { ...profileData, avatar_url: avatarUrl ? '...' : null })
+      const { data: insertData, error: profileError } = await supabase
         .from('profiles')
-        .insert({
-          id: user.id,
-          username,
-          full_name: fullName || null,
-          bio: bio || null,
-          city: city || null,
-          country: country || null,
-          avatar_url: avatarUrl,
-        })
+        .insert(profileData)
+        .select()
 
       if (profileError) {
+        console.error('[ProfileSetup] ❌ Profile creation failed:', profileError)
+        console.error('[ProfileSetup] Error details:', {
+          message: profileError.message,
+          code: profileError.code,
+          details: profileError.details,
+          hint: profileError.hint,
+        })
         if (profileError.code === '23505') {
           throw new Error('Username already taken. Please choose another.')
         }
         throw profileError
       }
 
+      console.log('[ProfileSetup] ✅ Profile created successfully!')
+      console.log('[ProfileSetup] Profile ID:', insertData?.[0]?.id)
+
       onComplete()
     } catch (err: any) {
-      setError(err.message || 'Failed to create profile')
+      console.error('[ProfileSetup] ❌ Profile creation failed with exception:', err)
+      const errorMessage = err.message || 'Failed to create profile'
+      console.error('[ProfileSetup] Error message:', errorMessage)
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

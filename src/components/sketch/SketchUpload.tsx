@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import { useAuth } from '@/hooks/useAuth'
+import { useUsername } from '@/hooks/useUsername'
 import { useEvents } from '@/hooks/useEvents'
 import type { Event } from '@/lib/types'
 
@@ -10,7 +10,7 @@ interface SketchUploadProps {
 }
 
 export function SketchUpload({ onSuccess, onCancel }: SketchUploadProps) {
-  const { user } = useAuth()
+  const { profile } = useUsername()
   const { events } = useEvents()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -114,8 +114,8 @@ export function SketchUpload({ onSuccess, onCancel }: SketchUploadProps) {
     e.preventDefault()
     setError(null)
 
-    if (!user) {
-      setError('You must be logged in to upload a sketch')
+    if (!profile) {
+      setError('Please set a username first (use the username box in the top-right corner)')
       return
     }
 
@@ -132,46 +132,92 @@ export function SketchUpload({ onSuccess, onCancel }: SketchUploadProps) {
     setLoading(true)
 
     try {
+      console.log('[SketchUpload] 📤 Starting sketch upload...')
+      console.log('[SketchUpload] Profile ID:', profile.id)
+      console.log('[SketchUpload] Title:', title)
+      console.log('[SketchUpload] Image file:', imageFile.name, `(${(imageFile.size / 1024).toFixed(2)} KB)`)
+      console.log('[SketchUpload] Coordinates:', latitude, longitude)
+      console.log('[SketchUpload] Event ID:', selectedEventId || 'none')
+
       // Upload image
       const fileExt = imageFile.name.split('.').pop()
       const fileName = `${Date.now()}-${Math.random()}.${fileExt}`
-      const filePath = `${user.id}/${fileName}`
+      const filePath = `${profile.id}/${fileName}`
 
+      console.log('[SketchUpload] 📤 Uploading image to storage...')
+      console.log('[SketchUpload] File path:', filePath)
       const { error: uploadError } = await supabase.storage
         .from('sketches')
         .upload(filePath, imageFile)
 
-      if (uploadError) throw uploadError
+      if (uploadError) {
+        console.error('[SketchUpload] ❌ Storage upload failed:', uploadError)
+        console.error('[SketchUpload] Error details:', {
+          message: uploadError.message,
+        })
+        throw uploadError
+      }
+
+      console.log('[SketchUpload] ✅ Image uploaded successfully')
 
       // Get public URL
+      console.log('[SketchUpload] 🔗 Getting public URL...')
       const { data: { publicUrl } } = supabase.storage
         .from('sketches')
         .getPublicUrl(filePath)
+      console.log('[SketchUpload] Public URL:', publicUrl)
 
       // Create thumbnail (simple - use same image for now, could be improved)
       const thumbnailUrl = publicUrl
 
       // Insert sketch record
-      const { error: insertError } = await supabase
-        .from('sketches')
-        .insert({
-          user_id: user.id,
-          title,
-          description: description || null,
-          image_url: publicUrl,
-          thumbnail_url: thumbnailUrl,
-          latitude: parseFloat(latitude),
-          longitude: parseFloat(longitude),
-          location_name: locationName || null,
-          event_id: selectedEventId || null,
-          sketch_date: sketchDate,
-        })
+      const sketchData = {
+        user_id: profile.id,
+        title,
+        description: description || null,
+        image_url: publicUrl,
+        thumbnail_url: thumbnailUrl,
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+        location_name: locationName || null,
+        event_id: selectedEventId || null,
+        sketch_date: sketchDate,
+      }
 
-      if (insertError) throw insertError
+      console.log('[SketchUpload] 💾 Inserting sketch record...')
+      console.log('[SketchUpload] Sketch data:', { ...sketchData, image_url: '...' })
+
+      const { data: insertData, error: insertError } = await supabase
+        .from('sketches')
+        .insert(sketchData)
+        .select()
+
+      if (insertError) {
+        console.error('[SketchUpload] ❌ Database insert failed:', insertError)
+        console.error('[SketchUpload] Error details:', {
+          message: insertError.message,
+          code: insertError.code,
+          details: insertError.details,
+          hint: insertError.hint,
+        })
+        
+        // Handle foreign key constraint violations
+        if (insertError.code === '23503' || insertError.message.includes('foreign key constraint')) {
+          throw new Error('Your profile is not set up correctly. Please complete your profile setup and try again.')
+        }
+        
+        throw insertError
+      }
+
+      console.log('[SketchUpload] ✅ Sketch uploaded successfully!')
+      console.log('[SketchUpload] Inserted sketch ID:', insertData?.[0]?.id)
 
       onSuccess?.()
     } catch (err: any) {
-      setError(err.message || 'Failed to upload sketch')
+      console.error('[SketchUpload] ❌ Upload failed with exception:', err)
+      const errorMessage = err.message || 'Failed to upload sketch'
+      console.error('[SketchUpload] Error message:', errorMessage)
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

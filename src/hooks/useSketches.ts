@@ -13,6 +13,7 @@ export function useSketches(userId?: string) {
 
   const fetchSketches = async () => {
     try {
+      console.log('[useSketches] 📥 Fetching sketches...', userId ? `for user: ${userId}` : 'for all users')
       setLoading(true)
       let query = supabase
         .from('sketches')
@@ -29,13 +30,23 @@ export function useSketches(userId?: string) {
 
       const { data, error: fetchError } = await query
 
-      if (fetchError) throw fetchError
+      if (fetchError) {
+        console.error('[useSketches] ❌ Error fetching sketches:', fetchError)
+        console.error('[useSketches] Error details:', {
+          message: fetchError.message,
+          code: fetchError.code,
+          details: fetchError.details,
+          hint: fetchError.hint,
+        })
+        throw fetchError
+      }
 
+      console.log('[useSketches] ✅ Successfully fetched sketches:', data?.length || 0, 'sketches')
       setSketches((data as Sketch[]) || [])
       setError(null)
     } catch (err) {
+      console.error('[useSketches] ❌ Exception fetching sketches:', err)
       setError(err as Error)
-      console.error('Error fetching sketches:', err)
     } finally {
       setLoading(false)
     }

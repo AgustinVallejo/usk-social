@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
-import { useAuth } from '@/hooks/useAuth'
+import { useUsername } from '@/hooks/useUsername'
 import type { Profile } from '@/lib/types'
 import { UserSketchGallery } from './UserSketchGallery'
 
 export function ProfilePage() {
   const { userId } = useParams<{ userId?: string }>()
-  const { user } = useAuth()
+  const { profile: currentUserProfile } = useUsername()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
@@ -19,45 +19,73 @@ export function ProfilePage() {
     country: '',
   })
 
-  const isOwnProfile = !userId || userId === user?.id
+  const isOwnProfile = !userId || userId === currentUserProfile?.id
 
   useEffect(() => {
     fetchProfile()
-  }, [userId, user])
+  }, [userId, currentUserProfile])
 
   const fetchProfile = async () => {
     try {
       setLoading(true)
-      const targetUserId = userId || user?.id
-      if (!targetUserId) return
+      const targetUserId = userId || currentUserProfile?.id
+      if (!targetUserId) {
+        console.log('[ProfilePage] No target user ID')
+        return
+      }
 
+      console.log('[ProfilePage] 📥 Fetching profile for user:', targetUserId)
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', targetUserId)
         .single()
 
-      if (error) throw error
+      if (error) {
+        // PGRST116 means no rows returned
+        if (error.code === 'PGRST116' || error.message.includes('No rows returned')) {
+          console.log('[ProfilePage] ❌ Profile not found in database')
+          console.log('[ProfilePage] User is authenticated but has no profile record')
+          setProfile(null)
+        } else {
+          console.error('[ProfilePage] ❌ Error fetching profile:', error)
+          console.error('[ProfilePage] Error details:', {
+            message: error.message,
+            code: error.code,
+            details: error.details,
+            hint: error.hint,
+          })
+          setProfile(null)
+        }
+        return
+      }
 
-      setProfile(data)
-      if (data && isOwnProfile) {
-        setEditForm({
-          username: data.username || '',
-          full_name: data.full_name || '',
-          bio: data.bio || '',
-          city: data.city || '',
-          country: data.country || '',
-        })
+      if (data) {
+        console.log('[ProfilePage] ✅ Profile fetched:', data.username)
+        setProfile(data)
+        if (isOwnProfile) {
+          setEditForm({
+            username: data.username || '',
+            full_name: data.full_name || '',
+            bio: data.bio || '',
+            city: data.city || '',
+            country: data.country || '',
+          })
+        }
+      } else {
+        console.log('[ProfilePage] ⚠️ No profile data returned')
+        setProfile(null)
       }
     } catch (err) {
-      console.error('Error fetching profile:', err)
+      console.error('[ProfilePage] ❌ Exception fetching profile:', err)
+      setProfile(null)
     } finally {
       setLoading(false)
     }
   }
 
   const handleSave = async () => {
-    if (!user || !profile) return
+    if (!currentUserProfile || !profile || !isOwnProfile) return
 
     try {
       const updates: Partial<Profile> = {
@@ -71,7 +99,7 @@ export function ProfilePage() {
       const { error } = await supabase
         .from('profiles')
         .update(updates)
-        .eq('id', user.id)
+        .eq('id', profile.id)
 
       if (error) throw error
 
@@ -87,7 +115,43 @@ export function ProfilePage() {
   }
 
   if (!profile) {
-    return <div className="text-center py-12">Profile not found</div>
+    // If viewing own profile but it doesn't exist, show setup message
+    if (isOwnProfile && currentUserProfile) {
+      return (
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 text-center">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Profile Not Found</h2>
+            <p className="text-gray-700 mb-6">
+              You are authenticated, but you don't have a profile in the database yet.
+              You need to complete your profile setup before you can use all features.
+            </p>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                <strong>What's happening:</strong> Your authentication session is stored locally, 
+                but your profile record wasn't created in the database. This is why you see 
+                this message even though you're logged in.
+              </p>
+              <button
+                onClick={() => window.location.href = '/login'}
+                className="px-6 py-3 bg-gray-700 text-white rounded-md hover:bg-gray-800 transition-colors"
+              >
+                Go to Profile Setup
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+    }
+    
+    // If viewing someone else's profile
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Profile Not Found</h2>
+          <p className="text-gray-700">This user profile doesn't exist.</p>
+        </div>
+      </div>
+    )
   }
 
   return (

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '@/hooks/useAuth'
+import { useUsername } from '@/hooks/useUsername'
 import { useEvents } from '@/hooks/useEvents'
 import { useSketches } from '@/hooks/useSketches'
 import { SketchUpload } from '@/components/sketch/SketchUpload'
@@ -10,7 +10,7 @@ import { SketchModal } from '@/components/sketch/SketchModal'
 import type { Sketch } from '@/lib/types'
 
 export function Home() {
-  const { user } = useAuth()
+  const { profile } = useUsername()
   const { events } = useEvents()
   const { sketches } = useSketches()
   const navigate = useNavigate()
@@ -30,37 +30,20 @@ export function Home() {
           <p className="text-xl mb-8 text-gray-600">
             Connect with Urban Sketchers worldwide. Share your artwork and discover inspiring sketches from around the globe.
           </p>
-          {user ? (
-            <div className="space-x-4">
-              <button
-                onClick={() => setShowCreateEvent(true)}
-                className="bg-gray-700 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-800 transition-colors shadow-md"
-              >
-                Create Event
-              </button>
-              <button
-                onClick={() => setShowUpload(true)}
-                className="bg-gray-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-700 transition-colors shadow-md"
-              >
-                Upload Your Sketch
-              </button>
-            </div>
-          ) : (
-            <div className="space-x-4">
-              <Link
-                to="/signup"
-                className="inline-block bg-gray-700 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-800 transition-colors shadow-md"
-              >
-                Sign Up
-              </Link>
-              <Link
-                to="/login"
-                className="inline-block bg-gray-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-700 transition-colors shadow-md"
-              >
-                Login
-              </Link>
-            </div>
-          )}
+          <div className="space-x-4">
+            <button
+              onClick={() => setShowCreateEvent(true)}
+              className="bg-gray-700 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-800 transition-colors shadow-md"
+            >
+              Create Event
+            </button>
+            <button
+              onClick={() => setShowUpload(true)}
+              className="bg-gray-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-700 transition-colors shadow-md"
+            >
+              Upload Your Sketch
+            </button>
+          </div>
         </div>
       </div>
 

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '@/hooks/useAuth'
+import { useUsername } from '@/hooks/useUsername'
 import { supabase } from '@/lib/supabaseClient'
 import type { Sketch } from '@/lib/types'
 
@@ -10,9 +10,9 @@ interface SketchModalProps {
 }
 
 export function SketchModal({ sketch, onClose, onUpdate }: SketchModalProps) {
-  const { user } = useAuth()
+  const { profile } = useUsername()
   const navigate = useNavigate()
-  const isOwner = user?.id === sketch.user_id
+  const isOwner = profile?.id === sketch.user_id
 
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this sketch?')) return

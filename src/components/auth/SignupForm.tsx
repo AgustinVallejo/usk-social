@@ -31,10 +31,16 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
     setLoading(true)
 
     try {
-      const { error } = await signUp(email, password)
-      if (error) throw error
+      console.log('[SignupForm] 🔐 Attempting sign up...')
+      const { data, error } = await signUp(email, password)
+      if (error) {
+        console.error('[SignupForm] ❌ Sign up failed:', error)
+        throw error
+      }
+      console.log('[SignupForm] ✅ Sign up successful')
       onSuccess?.()
     } catch (err: any) {
+      console.error('[SignupForm] ❌ Sign up error:', err)
       setError(err.message || 'Failed to sign up')
     } finally {
       setLoading(false)

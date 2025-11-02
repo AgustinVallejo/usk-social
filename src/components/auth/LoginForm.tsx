@@ -19,10 +19,16 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
     setLoading(true)
 
     try {
-      const { error } = await signIn(email, password)
-      if (error) throw error
+      console.log('[LoginForm] 🔑 Attempting sign in...')
+      const { data, error } = await signIn(email, password)
+      if (error) {
+        console.error('[LoginForm] ❌ Sign in failed:', error)
+        throw error
+      }
+      console.log('[LoginForm] ✅ Sign in successful')
       onSuccess?.()
     } catch (err: any) {
+      console.error('[LoginForm] ❌ Sign in error:', err)
       setError(err.message || 'Failed to sign in')
     } finally {
       setLoading(false)

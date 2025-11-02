@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import { useAuth } from '@/hooks/useAuth'
+import { useUsername } from '@/hooks/useUsername'
 import { MapPicker } from '@/components/common/MapPicker'
 
 interface EventCreateProps {
@@ -9,7 +9,7 @@ interface EventCreateProps {
 }
 
 export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
-  const { user } = useAuth()
+  const { profile } = useUsername()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [eventDate, setEventDate] = useState('')
@@ -30,8 +30,8 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
     e.preventDefault()
     setError(null)
 
-    if (!user) {
-      setError('You must be logged in to create an event')
+    if (!profile) {
+      setError('Please set a username first (use the username box in the top-right corner)')
       return
     }
 
@@ -48,34 +48,63 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
     setLoading(true)
 
     try {
+      console.log('[EventCreate] 📅 Creating event...')
+      console.log('[EventCreate] Profile ID:', profile.id)
+      console.log('[EventCreate] Title:', title)
+      console.log('[EventCreate] Coordinates:', latitude, longitude)
+      console.log('[EventCreate] Location:', locationName || 'none')
+      console.log('[EventCreate] City/Country:', city, country)
+
+      const eventData = {
+        title,
+        description: description || null,
+        event_date: eventDate || null,
+        latitude: latitude,
+        longitude: longitude,
+        location_name: locationName || null,
+        city: city || null,
+        country: country || null,
+          created_by: profile.id,
+      }
+
+      console.log('[EventCreate] 💾 Inserting event record...')
+      console.log('[EventCreate] Event data:', eventData)
       const { data, error: insertError } = await supabase
         .from('events')
-        .insert({
-          title,
-          description: description || null,
-          event_date: eventDate || null,
-          latitude: latitude,
-          longitude: longitude,
-          location_name: locationName || null,
-          city: city || null,
-          country: country || null,
-          created_by: user.id,
-        })
+        .insert(eventData)
         .select()
 
       if (insertError) {
-        console.error('Event insert error:', insertError)
+        console.error('[EventCreate] ❌ Event insert failed:', insertError)
+        console.error('[EventCreate] Error details:', {
+          message: insertError.message,
+          code: insertError.code,
+          details: insertError.details,
+          hint: insertError.hint,
+        })
+        
+        // Handle foreign key constraint violations
+        if (insertError.code === '23503' || insertError.message.includes('foreign key constraint')) {
+          throw new Error('Your profile is not set up correctly. Please complete your profile setup and try again.')
+        }
+        
         throw insertError
       }
 
       if (!data || data.length === 0) {
+        console.error('[EventCreate] ❌ Event was not created - no data returned')
         throw new Error('Event was not created. Please check your database permissions.')
       }
 
+      console.log('[EventCreate] ✅ Event created successfully!')
+      console.log('[EventCreate] Event ID:', data[0]?.id)
+
       onSuccess?.()
     } catch (err: any) {
-      console.error('Event creation error:', err)
-      setError(err.message || err.error_description || 'Failed to create event. Please check console for details.')
+      console.error('[EventCreate] ❌ Event creation failed with exception:', err)
+      const errorMessage = err.message || err.error_description || 'Failed to create event. Please check console for details.'
+      console.error('[EventCreate] Error message:', errorMessage)
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
