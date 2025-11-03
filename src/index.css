@@ -74,3 +74,14 @@ body::before {
   background-color: #e8e8e0;
 }
 
+/* Dark minimalistic map styling */
+.map-tiles-dark {
+  filter: grayscale(100%) brightness(0.3) contrast(1.2) invert(1) hue-rotate(180deg);
+}
+
+/* Dark map container background */
+.map-tiles-dark + * .leaflet-container,
+div:has(.map-tiles-dark) .leaflet-container {
+  background-color: #1a1a1a;
+}
+

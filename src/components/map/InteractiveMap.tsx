@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet'
+import 'leaflet/dist/leaflet.css'
 import type { Sketch, Event } from '@/lib/types'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -30,6 +32,65 @@ interface SketchCloudItem {
   distance: number
 }
 
+// Component to listen to Leaflet map events and update canvas state
+function MapEventListener({ 
+  onMapMove, 
+  onMapZoom,
+  externalCenter,
+  externalZoom,
+  onMapReady
+}: { 
+  onMapMove: (center: [number, number]) => void
+  onMapZoom: (zoom: number) => void
+  externalCenter?: [number, number]
+  externalZoom?: number
+  onMapReady: (map: any) => void
+}) {
+  const map = useMap()
+  
+  // Provide map instance to parent
+  useEffect(() => {
+    onMapReady(map)
+  }, [map, onMapReady])
+  
+  // Listen to map events
+  useMapEvents({
+    moveend() {
+      const center = map.getCenter()
+      onMapMove([center.lat, center.lng])
+    },
+    zoomend() {
+      onMapZoom(map.getZoom())
+    },
+  })
+  
+  // Sync external changes to map (for programmatic zoom/pan)
+  useEffect(() => {
+    if (externalCenter && externalZoom) {
+      const currentCenter = map.getCenter()
+      const currentZoom = map.getZoom()
+      
+      const centerChanged = 
+        Math.abs(currentCenter.lat - externalCenter[0]) > 0.0001 ||
+        Math.abs(currentCenter.lng - externalCenter[1]) > 0.0001
+      const zoomChanged = Math.abs(currentZoom - externalZoom) > 0.1
+      
+      if (centerChanged || zoomChanged) {
+        map.setView(externalCenter, externalZoom, { animate: true })
+      }
+    }
+  }, [map, externalCenter, externalZoom])
+  
+  // Initial sync
+  useEffect(() => {
+    const center = map.getCenter()
+    onMapMove([center.lat, center.lng])
+    onMapZoom(map.getZoom())
+  }, [map, onMapMove, onMapZoom])
+  
+  return null
+}
+
 export function InteractiveMap({
   sketches,
   initialCenter = [6.2476, -75.5658], // Medellín, Colombia
@@ -47,9 +108,7 @@ export function InteractiveMap({
   const [sketchCloudPositions, setSketchCloudPositions] = useState<Map<string, { x: number; y: number }>>(new Map())
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
   const animationFrameRef = useRef<number>()
-  const [isDragging, setIsDragging] = useState(false)
-  const dragStartRef = useRef<{ x: number; y: number; center: [number, number] } | null>(null)
-  const hasDraggedRef = useRef(false)
+  const mapInstanceRef = useRef<any>(null) // Leaflet map instance
 
   // Fetch events
   useEffect(() => {
@@ -89,30 +148,66 @@ export function InteractiveMap({
     }
   }, [])
 
-  // Convert lat/lng to pixel coordinates
+  // Callbacks for map events
+  const handleMapMove = useCallback((newCenter: [number, number]) => {
+    setCenter(newCenter)
+  }, [])
+
+  const handleMapZoom = useCallback((newZoom: number) => {
+    setZoom(newZoom)
+  }, [])
+
+  const handleMapReady = useCallback((map: any) => {
+    mapInstanceRef.current = map
+    
+    // Resize canvas when map is ready
+    const canvas = canvasRef.current
+    if (canvas) {
+      const container = map.getContainer()
+      const rect = container.getBoundingClientRect()
+      canvas.width = rect.width
+      canvas.height = rect.height
+      canvas.style.width = rect.width + 'px'
+      canvas.style.height = rect.height + 'px'
+      
+      // Trigger resize on map resize
+      map.on('resize', () => {
+        const newRect = container.getBoundingClientRect()
+        canvas.width = newRect.width
+        canvas.height = newRect.height
+        canvas.style.width = newRect.width + 'px'
+        canvas.style.height = newRect.height + 'px'
+      })
+    }
+  }, [])
+
+  // Convert lat/lng to pixel coordinates using Leaflet's actual projection
   const latLngToPixel = useCallback(
-    (lat: number, lng: number, canvasWidth: number, canvasHeight: number, centerLat?: number, centerLng?: number): [number, number] => {
-      // Simple equirectangular projection
-      const scale = Math.pow(2, zoom) * 0.001
-      const centerLatVal = centerLat ?? center[0]
-      const centerLngVal = centerLng ?? center[1]
-      const x = (lng - centerLngVal) * scale * canvasWidth + canvasWidth / 2
-      const y = (centerLatVal - lat) * scale * canvasHeight + canvasHeight / 2
-      return [x, y]
+    (lat: number, lng: number): [number, number] => {
+      const map = mapInstanceRef.current
+      if (!map) {
+        // Map not ready yet - return invalid coordinates that won't render
+        return [-1000, -1000]
+      }
+
+      try {
+        // Use Leaflet's containerPoint method which gives coordinates relative to map container
+        const latlng = { lat, lng }
+        const containerPoint = map.latLngToContainerPoint(latlng)
+        
+        const x = containerPoint.x
+        const y = containerPoint.y
+        
+        return [x, y]
+      } catch (error) {
+        console.warn('Error converting lat/lng to pixel:', error)
+        return [-1000, -1000]
+      }
     },
-    [center, zoom]
+    []
   )
 
-  // Convert pixel delta to lat/lng delta
-  const pixelToLatLngDelta = useCallback(
-    (pixelDx: number, pixelDy: number, canvasWidth: number, canvasHeight: number): [number, number] => {
-      const scale = Math.pow(2, zoom) * 0.001
-      const latDelta = -pixelDy / (scale * canvasHeight)
-      const lngDelta = pixelDx / (scale * canvasWidth)
-      return [latDelta, lngDelta]
-    },
-    [zoom]
-  )
+  // Removed pixelToLatLngDelta - Leaflet handles pan/zoom
 
   // Generate pastel color for event
   const generatePastelColor = useCallback((eventId: string): string => {
@@ -148,7 +243,13 @@ export function InteractiveMap({
       const event = events.get(eventId)
       if (!event || !event.latitude || !event.longitude) return
 
-      const [x, y] = latLngToPixel(event.latitude, event.longitude, canvas.width, canvas.height, center[0], center[1])
+      const [x, y] = latLngToPixel(event.latitude, event.longitude)
+      
+      // Skip if coordinates are invalid (map not ready or out of bounds)
+      if (x === -1000 && y === -1000) {
+        return
+      }
+      
       const baseRadius = 20 + Math.min(eventSketches.length * 3, 40)
       
       blobs.push({
@@ -163,8 +264,12 @@ export function InteractiveMap({
       })
     })
 
-    // Merge close blobs
-    const MERGE_DISTANCE = 80
+    // Merge close blobs - distance scales with zoom level
+    // At lower zoom (farther out), merge distance is larger
+    // At higher zoom (closer in), merge distance is smaller
+    const baseMergeDistance = 80
+    const zoomFactor = Math.pow(2, 12 - zoom) // Scale based on zoom
+    const MERGE_DISTANCE = baseMergeDistance * Math.max(0.5, Math.min(2, zoomFactor))
     const merged: BlobData[] = []
     const processed = new Set<string>()
 
@@ -212,7 +317,7 @@ export function InteractiveMap({
     })
 
     return merged
-  }, [sketches, events, latLngToPixel, generatePastelColor])
+  }, [sketches, events, latLngToPixel, generatePastelColor, zoom])
 
   // Draw gradient noise blob
   const drawBlob = useCallback(
@@ -367,9 +472,14 @@ export function InteractiveMap({
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // Clear canvas with background
-    ctx.fillStyle = '#f5f5f5'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    // Don't render if map isn't ready
+    if (!mapInstanceRef.current) {
+      animationFrameRef.current = requestAnimationFrame(render)
+      return
+    }
+
+    // Clear canvas with transparent background (map tiles show through)
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
 
     const blobs = prepareBlobs()
 
@@ -446,81 +556,60 @@ export function InteractiveMap({
     if (!canvas) return
 
     const resize = () => {
-      canvas.width = canvas.offsetWidth
-      canvas.height = canvas.offsetHeight
+      // Get the map container size to match canvas to it
+      const mapContainer = mapInstanceRef.current?.getContainer()
+      if (mapContainer) {
+        const rect = mapContainer.getBoundingClientRect()
+        canvas.width = rect.width
+        canvas.height = rect.height
+        canvas.style.width = rect.width + 'px'
+        canvas.style.height = rect.height + 'px'
+      } else {
+        // Fallback to canvas container size
+        const parent = canvas.parentElement
+        if (parent) {
+          const rect = parent.getBoundingClientRect()
+          canvas.width = rect.width
+          canvas.height = rect.height
+          canvas.style.width = rect.width + 'px'
+          canvas.style.height = rect.height + 'px'
+        }
+      }
     }
 
     resize()
+    
+    // Resize when map is ready
+    const checkMapReady = setInterval(() => {
+      if (mapInstanceRef.current) {
+        resize()
+        clearInterval(checkMapReady)
+      }
+    }, 100)
+    
     window.addEventListener('resize', resize)
+    
+    // Also listen to map move events to resize
+    const map = mapInstanceRef.current
+    if (map) {
+      map.on('resize', resize)
+    }
 
     render()
 
     return () => {
+      clearInterval(checkMapReady)
       window.removeEventListener('resize', resize)
+      if (map) {
+        map.off('resize', resize)
+      }
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
   }, [render])
 
-  // Handle mouse down - start pan or click
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const canvas = canvasRef.current
-      if (!canvas) return
-
-      // Only pan with left mouse button
-      if (e.button !== 0) return
-
-      const rect = canvas.getBoundingClientRect()
-      const x = e.clientX - rect.left
-      const y = e.clientY - rect.top
-
-      // Check if clicking on a blob or sketch first
-      const blobs = prepareBlobs()
-      
-      // Check if clicking on a blob
-      for (const blob of blobs) {
-        const dx = blob.x - x
-        const dy = blob.y - y
-        const dist = Math.sqrt(dx * dx + dy * dy)
-        
-        if (dist < blob.radius) {
-          // Don't start pan if clicking on blob
-          return
-        }
-      }
-
-      // Check if clicking on a sketch in the cloud
-      if (selectedEventId) {
-        const selectedBlob = blobs.find((b) => b.eventId === selectedEventId)
-        if (selectedBlob) {
-          for (const [, pos] of sketchCloudPositions.entries()) {
-            const dx = pos.x - x
-            const dy = pos.y - y
-            const dist = Math.sqrt(dx * dx + dy * dy)
-            
-            if (dist < 20) {
-              // Don't start pan if clicking on sketch
-              return
-            }
-          }
-        }
-      }
-
-      // Start panning
-      setIsDragging(true)
-      hasDraggedRef.current = false
-      dragStartRef.current = {
-        x: e.clientX,
-        y: e.clientY,
-        center: [...center] as [number, number],
-      }
-    },
-    [prepareBlobs, selectedEventId, sketchCloudPositions, center]
-  )
-
-  // Handle mouse move
+  // Handle mouse move for hover detection
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current
@@ -531,27 +620,7 @@ export function InteractiveMap({
       const y = e.clientY - rect.top
       setMousePos({ x, y })
 
-      // Handle panning
-      if (isDragging && dragStartRef.current) {
-        const dx = e.clientX - dragStartRef.current.x
-        const dy = e.clientY - dragStartRef.current.y
-        
-        // Track if we've actually moved (not just a click)
-        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
-          hasDraggedRef.current = true
-        }
-        
-        const [latDelta, lngDelta] = pixelToLatLngDelta(dx, dy, canvas.width, canvas.height)
-        
-        const newCenter: [number, number] = [
-          dragStartRef.current.center[0] - latDelta,
-          dragStartRef.current.center[1] - lngDelta,
-        ]
-        setCenter(newCenter)
-        return
-      }
-
-      // Check hover (only if not dragging)
+      // Check hover
       const blobs = prepareBlobs()
       let foundHover = false
       
@@ -572,41 +641,10 @@ export function InteractiveMap({
         setHoveredBlob(null)
       }
     },
-    [prepareBlobs, isDragging, pixelToLatLngDelta]
+    [prepareBlobs]
   )
 
-  // Handle mouse up - end pan
-  const handleMouseUp = useCallback(() => {
-    if (isDragging) {
-      setIsDragging(false)
-      // Reset drag flag after a short delay to allow click handler to check it
-      setTimeout(() => {
-        hasDraggedRef.current = false
-      }, 0)
-      dragStartRef.current = null
-    }
-  }, [isDragging])
-
-  // Handle mouse leave - cancel pan
-  const handleMouseLeave = useCallback(() => {
-    if (isDragging) {
-      setIsDragging(false)
-      hasDraggedRef.current = false
-      dragStartRef.current = null
-    }
-  }, [isDragging])
-
-  // Handle wheel zoom
-  const handleWheel = useCallback(
-    (e: React.WheelEvent<HTMLCanvasElement>) => {
-      e.preventDefault()
-      const zoomSensitivity = 0.5
-      const delta = -e.deltaY * zoomSensitivity * 0.01
-      const newZoom = Math.max(1, Math.min(20, zoom + delta))
-      setZoom(newZoom)
-    },
-    [zoom]
-  )
+  // Wheel zoom handled by Leaflet, removed
 
   // Calculate zoom level needed to separate merged blobs
   const calculateZoomForSeparation = useCallback(
@@ -651,13 +689,10 @@ export function InteractiveMap({
     [zoom]
   )
 
-  // Handle click
+  // Handle click on canvas (for blob/sketch selection)
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      // Don't handle click if we just finished dragging
-      if (hasDraggedRef.current) {
-        return
-      }
+      e.stopPropagation() // Prevent map click
 
       const canvas = canvasRef.current
       if (!canvas) return
@@ -726,27 +761,54 @@ export function InteractiveMap({
         }
       }
 
-      // Click on empty space - close selection
-      setSelectedEventId(null)
-      setSelectedSketch(null)
+      // Click on empty space - close selection (but don't prevent map interaction)
+      // Only close if clicking on canvas background, not on map
     },
     [prepareBlobs, selectedEventId, sketchCloudPositions, calculateZoomForSeparation, onSketchClick]
   )
 
   return (
-    <div className="relative w-full h-screen bg-gray-100">
+    <div className="relative w-full h-screen bg-gray-900">
+      {/* OpenStreetMap tile layer - handles all interactions */}
+      <div className="absolute inset-0 z-0">
+        <MapContainer
+          center={initialCenter}
+          zoom={initialZoom}
+          style={{ height: '100%', width: '100%' }}
+          zoomControl={true}
+          attributionControl={false}
+          scrollWheelZoom={true}
+          doubleClickZoom={true}
+          dragging={true}
+          touchZoom={true}
+          boxZoom={true}
+        >
+          <MapEventListener 
+            onMapMove={handleMapMove} 
+            onMapZoom={handleMapZoom}
+            externalCenter={center}
+            externalZoom={zoom}
+            onMapReady={handleMapReady}
+          />
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            className="map-tiles-dark"
+          />
+        </MapContainer>
+      </div>
+      
+      {/* Canvas overlay - handles blob clicks and hover */}
       <canvas
         ref={canvasRef}
-        onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
         onClick={handleClick}
-        onWheel={handleWheel}
-        className="w-full h-full"
+        className="absolute top-0 left-0"
         style={{
           display: 'block',
-          cursor: isDragging ? 'grabbing' : 'grab',
+          pointerEvents: 'auto', // Allow clicks/hover on canvas
+          zIndex: 1000, // Ensure canvas is above map
+          width: '100%',
+          height: '100%',
         }}
       />
       
