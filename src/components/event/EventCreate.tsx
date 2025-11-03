@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useUsername } from '@/hooks/useUsername'
 import { MapPicker } from '@/components/common/MapPicker'
@@ -20,10 +20,13 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
   const [country, setCountry] = useState('Colombia')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [mapSearchQuery, setMapSearchQuery] = useState<string>('')
 
   const handleLocationSelect = (lat: number, lng: number) => {
     setLatitude(lat)
     setLongitude(lng)
+    // Clear the search trigger after selection
+    setMapSearchQuery('')
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -166,14 +169,37 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
           <label htmlFor="locationName" className="block text-sm font-medium text-gray-700 mb-1">
             Location Name
           </label>
-          <input
-            id="locationName"
-            type="text"
-            value={locationName}
-            onChange={(e) => setLocationName(e.target.value)}
-            className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
-            placeholder="La Candelaria"
-          />
+          <div className="flex gap-2">
+            <input
+              id="locationName"
+              type="text"
+              value={locationName}
+              onChange={(e) => setLocationName(e.target.value)}
+              className="flex-1 px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
+              placeholder="La Candelaria"
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && locationName.trim()) {
+                  e.preventDefault()
+                  setMapSearchQuery(locationName)
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                if (locationName.trim()) {
+                  setMapSearchQuery(locationName)
+                }
+              }}
+              className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors whitespace-nowrap"
+              title="Search location on map"
+            >
+              🔍 Search
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-gray-500">
+            Enter a location name and click Search to find it on the map
+          </p>
         </div>
 
         <div>
@@ -185,6 +211,9 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
             longitude={longitude}
             onLocationSelect={handleLocationSelect}
             height="300px"
+            externalSearchQuery={mapSearchQuery}
+            syncSearchQuery={locationName}
+            onLocationNameUpdate={setLocationName}
           />
           <div className="mt-2 text-xs text-gray-500">
             Selected: {latitude.toFixed(4)}, {longitude.toFixed(4)}
