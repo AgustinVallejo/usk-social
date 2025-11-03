@@ -163,6 +163,20 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
         </div>
 
         <div>
+          <label htmlFor="locationName" className="block text-sm font-medium text-gray-700 mb-1">
+            Location Name
+          </label>
+          <input
+            id="locationName"
+            type="text"
+            value={locationName}
+            onChange={(e) => setLocationName(e.target.value)}
+            className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
+            placeholder="La Candelaria"
+          />
+        </div>
+
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Location <span className="text-red-500">*</span>
           </label>
@@ -175,20 +189,6 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
           <div className="mt-2 text-xs text-gray-500">
             Selected: {latitude.toFixed(4)}, {longitude.toFixed(4)}
           </div>
-        </div>
-
-        <div>
-          <label htmlFor="locationName" className="block text-sm font-medium text-gray-700 mb-1">
-            Location Name
-          </label>
-          <input
-            id="locationName"
-            type="text"
-            value={locationName}
-            onChange={(e) => setLocationName(e.target.value)}
-            className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
-            placeholder="Parque Lleras"
-          />
         </div>
 
         <div className="grid grid-cols-2 gap-4">

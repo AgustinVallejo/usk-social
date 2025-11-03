@@ -118,6 +118,12 @@ export function Home() {
             >
               <span className="relative z-10">Subir un Sketch</span>
             </button>
+            <button
+              onClick={() => navigate('/map')}
+              className="bg-gray-700 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-800 transition-colors shadow-md"
+            >
+              Ir al Mapa
+            </button>
           </div>
         </div>
       </div>
