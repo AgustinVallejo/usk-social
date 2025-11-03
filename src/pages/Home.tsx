@@ -29,6 +29,7 @@ export function Home() {
           <h1 className="text-5xl font-bold mb-4 text-gray-800">Bienvenido a USK Social</h1>
           <p className="text-xl mb-8 text-gray-600">
             Un espacio interactivo para compartir y disfrutar nuestras creaciones alrededor del mundo.
+            <br/>Por ahora solo disponible para USK Medellín.
           </p>
           <div className="space-x-4">
             <button
