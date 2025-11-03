@@ -98,6 +98,7 @@ export function InteractiveMap({
   onSketchClick,
 }: InteractiveMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const mapContainerRef = useRef<HTMLDivElement>(null)
   const [center, setCenter] = useState<[number, number]>(initialCenter)
   const [zoom, setZoom] = useState(initialZoom)
   const [events, setEvents] = useState<Map<string, Event>>(new Map())
@@ -209,7 +210,7 @@ export function InteractiveMap({
 
   // Removed pixelToLatLngDelta - Leaflet handles pan/zoom
 
-  // Generate pastel color for event
+  // Generate vibrant pastel color for event
   const generatePastelColor = useCallback((eventId: string): string => {
     // Use event ID as seed for consistent colors
     let hash = 0
@@ -217,8 +218,8 @@ export function InteractiveMap({
       hash = eventId.charCodeAt(i) + ((hash << 5) - hash)
     }
     const hue = (hash % 360 + 360) % 360
-    const saturation = 40 + (hash % 20) // 40-60%
-    const lightness = 75 + (hash % 15) // 75-90%
+    const saturation = 60 + (hash % 30) // 60-90% - more vibrant
+    const lightness = 65 + (hash % 15) // 65-80% - not too bright but more visible
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`
   }, [])
 
@@ -318,6 +319,47 @@ export function InteractiveMap({
 
     return merged
   }, [sketches, events, latLngToPixel, generatePastelColor, zoom])
+
+  // Check if a point hits any blob
+  const checkBlobHit = useCallback((clientX: number, clientY: number): { blob?: BlobData; sketchId?: string } | null => {
+    const canvas = canvasRef.current
+    if (!canvas) return null
+    
+    const rect = canvas.getBoundingClientRect()
+    const x = clientX - rect.left
+    const y = clientY - rect.top
+    
+    const blobs = prepareBlobs()
+    
+    // Check if clicking on a blob
+    for (const blob of blobs) {
+      const dx = blob.x - x
+      const dy = blob.y - y
+      const dist = Math.sqrt(dx * dx + dy * dy)
+      
+      if (dist < blob.radius) {
+        return { blob }
+      }
+    }
+    
+    // Check if clicking on a sketch in the cloud
+    if (selectedEventId) {
+      const selectedBlob = blobs.find((b) => b.eventId === selectedEventId)
+      if (selectedBlob) {
+        for (const [sketchId, pos] of sketchCloudPositions.entries()) {
+          const dx = pos.x - x
+          const dy = pos.y - y
+          const dist = Math.sqrt(dx * dx + dy * dy)
+          
+          if (dist < 20) {
+            return { blob: selectedBlob, sketchId }
+          }
+        }
+      }
+    }
+    
+    return null
+  }, [prepareBlobs, selectedEventId, sketchCloudPositions])
 
   // Draw gradient noise blob
   const drawBlob = useCallback(
@@ -609,9 +651,9 @@ export function InteractiveMap({
     }
   }, [render])
 
-  // Handle mouse move for hover detection
+  // Handle mouse move for hover detection - now handled on map container
   const handleMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
+    (e: MouseEvent) => {
       const canvas = canvasRef.current
       if (!canvas) return
 
@@ -620,7 +662,7 @@ export function InteractiveMap({
       const y = e.clientY - rect.top
       setMousePos({ x, y })
 
-      // Check hover
+      // Check if mouse is over any blob or sketch
       const blobs = prepareBlobs()
       let foundHover = false
       
@@ -629,10 +671,12 @@ export function InteractiveMap({
         const dy = blob.y - y
         const dist = Math.sqrt(dx * dx + dy * dy)
         
-        // Only show hover for single blobs (not merged)
-        if (dist < blob.radius && blob.mergedCount === 1) {
-          setHoveredBlob(blob.eventId)
-          foundHover = true
+        if (dist < blob.radius) {
+          // Only show hover for single blobs (not merged)
+          if (blob.mergedCount === 1) {
+            setHoveredBlob(blob.eventId)
+            foundHover = true
+          }
           break
         }
       }
@@ -689,88 +733,100 @@ export function InteractiveMap({
     [zoom]
   )
 
-  // Handle click on canvas (for blob/sketch selection)
+  // Handle click on map container (for blob/sketch selection)
   const handleClick = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      e.stopPropagation() // Prevent map click
+    (e: MouseEvent) => {
+      const hit = checkBlobHit(e.clientX, e.clientY)
+      if (!hit) {
+        // Clicked on empty space - close selection
+        setSelectedEventId(null)
+        setSelectedSketch(null)
+        return
+      }
 
-      const canvas = canvasRef.current
-      if (!canvas) return
+      // Prevent map interaction when clicking on blob
+      e.stopPropagation()
+      e.preventDefault()
 
-      const rect = canvas.getBoundingClientRect()
-      const x = e.clientX - rect.left
-      const y = e.clientY - rect.top
+      const { blob, sketchId } = hit
+      if (!blob) return
 
-      const blobs = prepareBlobs()
-
-      // Check if clicking on a blob
-      for (const blob of blobs) {
-        const dx = blob.x - x
-        const dy = blob.y - y
-        const dist = Math.sqrt(dx * dx + dy * dy)
-
-        if (dist < blob.radius) {
-          // If it's a merged blob, zoom in to separate
-          if (blob.mergedCount > 1 && blob.mergedEvents) {
-            // Calculate center of merged events
-            const centerLat =
-              blob.mergedEvents.reduce((sum, e) => sum + e.latitude, 0) /
-              blob.mergedEvents.length
-            const centerLng =
-              blob.mergedEvents.reduce((sum, e) => sum + e.longitude, 0) /
-              blob.mergedEvents.length
-
-            setCenter([centerLat, centerLng])
-            const newZoom = calculateZoomForSeparation(blob.mergedEvents)
-            setZoom(newZoom)
-            setSelectedEventId(null)
-            setSelectedSketch(null)
-            return
-          }
-
-          // Single blob - toggle selection
-          if (selectedEventId === blob.eventId) {
-            setSelectedEventId(null)
-            setSelectedSketch(null)
-          } else {
-            setSelectedEventId(blob.eventId)
-            setSelectedSketch(null)
-          }
+      // If clicking on a sketch in the cloud
+      if (sketchId) {
+        const sketch = blob.sketches.find((s) => s.id === sketchId)
+        if (sketch) {
+          setSelectedSketch(sketch)
+          onSketchClick?.(sketch)
           return
         }
       }
 
-      // Check if clicking on a sketch in the cloud
-      if (selectedEventId) {
-        const selectedBlob = blobs.find((b) => b.eventId === selectedEventId)
-        if (selectedBlob) {
-          for (const [sketchId, pos] of sketchCloudPositions.entries()) {
-            const dx = pos.x - x
-            const dy = pos.y - y
-            const dist = Math.sqrt(dx * dx + dy * dy)
+      // If it's a merged blob, zoom in to separate
+      if (blob.mergedCount > 1 && blob.mergedEvents) {
+        // Calculate center of merged events
+        const centerLat =
+          blob.mergedEvents.reduce((sum, e) => sum + e.latitude, 0) /
+          blob.mergedEvents.length
+        const centerLng =
+          blob.mergedEvents.reduce((sum, e) => sum + e.longitude, 0) /
+          blob.mergedEvents.length
 
-            if (dist < 20) {
-              const sketch = selectedBlob.sketches.find((s) => s.id === sketchId)
-              if (sketch) {
-                setSelectedSketch(sketch)
-                onSketchClick?.(sketch)
-                return
-              }
-            }
-          }
-        }
+        setCenter([centerLat, centerLng])
+        const newZoom = calculateZoomForSeparation(blob.mergedEvents)
+        setZoom(newZoom)
+        setSelectedEventId(null)
+        setSelectedSketch(null)
+        return
       }
 
-      // Click on empty space - close selection (but don't prevent map interaction)
-      // Only close if clicking on canvas background, not on map
+      // Single blob - toggle selection
+      if (selectedEventId === blob.eventId) {
+        setSelectedEventId(null)
+        setSelectedSketch(null)
+      } else {
+        setSelectedEventId(blob.eventId)
+        setSelectedSketch(null)
+      }
     },
-    [prepareBlobs, selectedEventId, sketchCloudPositions, calculateZoomForSeparation, onSketchClick]
+    [checkBlobHit, selectedEventId, calculateZoomForSeparation, onSketchClick]
   )
+
+  // Handle mouse down on map container - prevent map drag when clicking blob
+  const handleMouseDown = useCallback(
+    (e: MouseEvent) => {
+      const hit = checkBlobHit(e.clientX, e.clientY)
+      if (hit) {
+        // Prevent map drag when clicking blob
+        e.stopPropagation()
+        e.preventDefault()
+      }
+    },
+    [checkBlobHit]
+  )
+
+  // Add event listeners to map container for blob interaction when map is ready
+  useEffect(() => {
+    if (!mapInstanceRef.current) return
+    
+    const container = mapInstanceRef.current.getContainer()
+    if (!container) return
+
+    // Use capture phase to catch events before Leaflet processes them
+    container.addEventListener('mousemove', handleMouseMove, true)
+    container.addEventListener('click', handleClick, true)
+    container.addEventListener('mousedown', handleMouseDown, true)
+
+    return () => {
+      container.removeEventListener('mousemove', handleMouseMove, true)
+      container.removeEventListener('click', handleClick, true)
+      container.removeEventListener('mousedown', handleMouseDown, true)
+    }
+  }, [handleMouseMove, handleClick, handleMouseDown])
 
   return (
     <div className="relative w-full h-screen bg-gray-900">
       {/* OpenStreetMap tile layer - handles all interactions */}
-      <div className="absolute inset-0 z-0">
+      <div ref={mapContainerRef} className="absolute inset-0 z-10">
         <MapContainer
           center={initialCenter}
           zoom={initialZoom}
@@ -797,16 +853,14 @@ export function InteractiveMap({
         </MapContainer>
       </div>
       
-      {/* Canvas overlay - handles blob clicks and hover */}
+      {/* Canvas overlay - non-interactive, rendering only */}
       <canvas
         ref={canvasRef}
-        onMouseMove={handleMouseMove}
-        onClick={handleClick}
         className="absolute top-0 left-0"
         style={{
           display: 'block',
-          pointerEvents: 'auto', // Allow clicks/hover on canvas
-          zIndex: 1000, // Ensure canvas is above map
+          pointerEvents: 'none', // Canvas doesn't block map interactions
+          zIndex: 1000, // Renders above map visually, but pointer-events: none means it doesn't intercept
           width: '100%',
           height: '100%',
         }}
@@ -815,10 +869,11 @@ export function InteractiveMap({
       {/* Hover tooltip */}
       {hoveredBlob && (
         <div
-          className="absolute pointer-events-none bg-black bg-opacity-75 text-white px-3 py-1 rounded text-sm z-10"
+          className="absolute pointer-events-none bg-black bg-opacity-75 text-white px-3 py-1 rounded text-sm"
           style={{
             left: mousePos ? `${mousePos.x + 10}px` : '0',
             top: mousePos ? `${mousePos.y + 10}px` : '0',
+            zIndex: 1500, // Above canvas
           }}
         >
           {events.get(hoveredBlob)?.title || 'Event'}
@@ -828,8 +883,11 @@ export function InteractiveMap({
       {/* Sketch viewer - smaller and less intrusive */}
       {selectedSketch && (
         <div
-          className="fixed bottom-4 right-4 bg-white rounded-lg shadow-2xl z-50 overflow-hidden max-w-sm w-full"
-          style={{ maxHeight: '60vh' }}
+          className="fixed bottom-4 right-4 bg-white rounded-lg shadow-2xl overflow-hidden max-w-sm w-full"
+          style={{ 
+            maxHeight: '60vh',
+            zIndex: 2000, // Above canvas
+          }}
         >
           <button
             onClick={() => setSelectedSketch(null)}
