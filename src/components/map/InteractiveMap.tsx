@@ -110,6 +110,9 @@ export function InteractiveMap({
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
   const animationFrameRef = useRef<number>()
   const mapInstanceRef = useRef<any>(null) // Leaflet map instance
+  const animationTimeRef = useRef<number>(0) // Time for noise animation
+  const lastFrameTimeRef = useRef<number>(0) // Track frame timing
+  const selectionTimeRef = useRef<Map<string, number>>(new Map()) // Track when each event was selected
 
   // Fetch events
   useEffect(() => {
@@ -449,27 +452,121 @@ export function InteractiveMap({
   // Store render function in ref for image loading
   const renderRef = useRef<() => void>()
 
+  // Improved hash function for pseudo-random values
+  const hash = useCallback((x: number, y: number): number => {
+    // Combine coordinates into a seed
+    const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453
+    return (n - Math.floor(n)) * 2 - 1 // Return value between -1 and 1
+  }, [])
+
+  // Smooth interpolation function (smoothstep)
+  const smoothstep = useCallback((t: number): number => {
+    return t * t * (3 - 2 * t)
+  }, [])
+
+  // Improved gradient noise function with proper interpolation
+  const gradNoise = useCallback((x: number, y: number): number => {
+    const fx = Math.floor(x)
+    const fy = Math.floor(y)
+    const cx = fx + 1
+    const cy = fy + 1
+    
+    // Get corner values using hash
+    const n00 = hash(fx, fy)
+    const n10 = hash(cx, fy)
+    const n01 = hash(fx, cy)
+    const n11 = hash(cx, cy)
+    
+    // Fractional parts
+    const fracX = x - fx
+    const fracY = y - fy
+    
+    // Smooth interpolation
+    const u = smoothstep(fracX)
+    const v = smoothstep(fracY)
+    
+    // Bilinear interpolation
+    const n0 = n00 * (1 - u) + n10 * u
+    const n1 = n01 * (1 - u) + n11 * u
+    
+    return n0 * (1 - v) + n1 * v
+  }, [hash, smoothstep])
+
+  // Multi-octave noise for smoother, more natural movement
+  const fbm = useCallback((x: number, y: number, octaves: number = 3): number => {
+    let value = 0
+    let amplitude = 0.5
+    let frequency = 1
+    let maxValue = 0
+    
+    for (let i = 0; i < octaves; i++) {
+      value += gradNoise(x * frequency, y * frequency) * amplitude
+      maxValue += amplitude
+      amplitude *= 0.5
+      frequency *= 2
+    }
+    
+    // Normalize from [-1, 1] to [0, 1]
+    return (value / maxValue + 1) / 2
+  }, [gradNoise])
+
+  // Easing function for smooth flow-out animation (ease-out-cubic)
+  const easeOutCubic = useCallback((t: number): number => {
+    return 1 - Math.pow(1 - t, 3)
+  }, [])
+
   // Draw sketch cloud
   const drawSketchCloud = useCallback(
     (
       ctx: CanvasRenderingContext2D,
       sketches: Sketch[],
       centerX: number,
-      centerY: number
+      centerY: number,
+      eventId: string,
+      currentTime: number
     ): SketchCloudItem[] => {
       const items: SketchCloudItem[] = []
       const angleStep = (Math.PI * 2) / Math.max(sketches.length, 1)
       const baseDistance = 100
       const positions = new Map<string, { x: number; y: number }>()
+      
+      // Get selection time for this event
+      const selectionTime = selectionTimeRef.current.get(eventId) || currentTime
+      if (!selectionTimeRef.current.has(eventId)) {
+        selectionTimeRef.current.set(eventId, currentTime)
+      }
+      
+      // Calculate animation progress (0 to 1) with duration of 0.8 seconds
+      const animationDuration = 0.8
+      const elapsed = currentTime - selectionTime
+      const progress = Math.min(1, elapsed / animationDuration)
+      const easedProgress = easeOutCubic(progress)
 
       sketches.forEach((sketch, index) => {
-        const angle = index * angleStep
-        // Use constant offset based on index instead of temporal evolution
-        const distance = baseDistance + Math.sin(index * 0.5) * 10
-        const x = centerX + Math.cos(angle) * distance
-        const y = centerY + Math.sin(angle) * distance
+        // Base angle evenly distributed around circle
+        const baseAngle = index * angleStep
+        
+        // Noise parameters - each sketch has unique seed based on index
+        const noiseTime = currentTime * 0.5 // Animation speed
+        const angleNoiseScale = 0.7 // How much noise affects angle (in radians)
+        const distanceNoiseScale = 30 // How much noise affects distance (in pixels)
+        const noiseFrequency = 0.15 // Frequency of noise
+        
+        // Apply noise to angle separately
+        const angleNoise = fbm(index * 0.3, noiseTime * noiseFrequency, 3)
+        const angleOffset = (angleNoise - 0.5) * angleNoiseScale
+        const finalAngle = baseAngle + angleOffset
+        
+        // Apply noise to distance separately
+        const distanceNoise = fbm(index * 0.3 + 100, noiseTime * noiseFrequency + 50, 3)
+        const distanceOffset = (distanceNoise - 0.5) * distanceNoiseScale
+        const finalDistance = (baseDistance + distanceOffset) * easedProgress
+        
+        // Calculate position with animated distance
+        const x = centerX + Math.cos(finalAngle) * finalDistance
+        const y = centerY + Math.sin(finalAngle) * finalDistance
 
-        items.push({ sketch, x, y, angle, distance })
+        items.push({ sketch, x, y, angle: finalAngle, distance: finalDistance })
         positions.set(sketch.id, { x, y })
 
         // Draw sketch thumbnail as small circle
@@ -503,7 +600,7 @@ export function InteractiveMap({
       setSketchCloudPositions(positions)
       return items
     },
-    []
+    [fbm, easeOutCubic]
   )
 
   // Render loop
@@ -519,6 +616,15 @@ export function InteractiveMap({
       animationFrameRef.current = requestAnimationFrame(render)
       return
     }
+
+    // Update animation time using actual elapsed time
+    const now = performance.now() / 1000 // Convert to seconds
+    if (lastFrameTimeRef.current === 0 || (now - lastFrameTimeRef.current) > 1) {
+      lastFrameTimeRef.current = now
+    }
+    const deltaTime = now - lastFrameTimeRef.current
+    animationTimeRef.current += deltaTime
+    lastFrameTimeRef.current = now
 
     // Clear canvas with transparent background (map tiles show through)
     ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -553,7 +659,7 @@ export function InteractiveMap({
 
       // Draw sketch cloud if selected
       if (isSelected) {
-        drawSketchCloud(ctx, blob.sketches, blob.x, blob.y)
+        drawSketchCloud(ctx, blob.sketches, blob.x, blob.y, blob.eventId, animationTimeRef.current)
       }
     })
 
@@ -783,9 +889,11 @@ export function InteractiveMap({
       if (selectedEventId === blob.eventId) {
         setSelectedEventId(null)
         setSelectedSketch(null)
+        selectionTimeRef.current.delete(blob.eventId) // Clear animation timing
       } else {
         setSelectedEventId(blob.eventId)
         setSelectedSketch(null)
+        // Animation time will be set in drawSketchCloud on first render
       }
     },
     [checkBlobHit, selectedEventId, calculateZoomForSeparation, onSketchClick]

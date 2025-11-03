@@ -30,7 +30,7 @@ export function Navbar() {
   }
 
   return (
-    <nav className="bg-gray-100 shadow-sm border-b border-gray-300">
+    <nav className="sticky top-0 z-50 bg-gray-100 shadow-sm border-b border-gray-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <Link to="/" className="flex items-center">

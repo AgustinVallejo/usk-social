@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Navbar } from '@/components/common/Navbar'
-import { Footer } from '@/components/common/Footer'
 import { Home } from '@/pages/Home'
 import { Map } from '@/pages/Map'
 import { Profile } from '@/pages/Profile'
@@ -17,7 +16,6 @@ function App() {
             <Route path="/profile/:username" element={<Profile />} />
           </Routes>
         </main>
-        <Footer />
       </div>
     </BrowserRouter>
   )

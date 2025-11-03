@@ -10,7 +10,7 @@ export function Map() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
+      <div className="flex items-center justify-center bg-gray-50" style={{ height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
         <div className="text-center">
           <p className="text-gray-600">Loading map...</p>
         </div>
@@ -23,7 +23,7 @@ export function Map() {
   )
 
   return (
-    <div className="relative h-screen w-full">
+    <div className="relative w-full" style={{ height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
       <InteractiveMap sketches={sketchesWithLocation} />
       {selectedSketch && (
         <SketchModal
