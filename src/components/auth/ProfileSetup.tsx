@@ -80,10 +80,11 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
         console.log('[ProfileSetup] Avatar URL:', avatarUrl)
       }
 
-      // Create profile
+      // Create or update profile
       const profileData = {
         id: user.id,
         username,
+        email: user.email || null,
         full_name: fullName || null,
         bio: bio || null,
         city: city || null,
@@ -91,11 +92,11 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
         avatar_url: avatarUrl,
       }
 
-      console.log('[ProfileSetup] 💾 Inserting profile record...')
+      console.log('[ProfileSetup] 💾 Upserting profile record...')
       console.log('[ProfileSetup] Profile data:', { ...profileData, avatar_url: avatarUrl ? '...' : null })
       const { data: insertData, error: profileError } = await supabase
         .from('profiles')
-        .insert(profileData)
+        .upsert(profileData, { onConflict: 'id' })
         .select()
 
       if (profileError) {
@@ -147,7 +148,7 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
             onChange={(e) => setUsername(e.target.value)}
             required
             className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
-            placeholder="johndoe"
+            placeholder="nel"
           />
         </div>
 

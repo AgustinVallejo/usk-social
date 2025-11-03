@@ -7,7 +7,7 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
-  const [email, setEmail] = useState('')
+  const [emailOrUsername, setEmailOrUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -20,7 +20,7 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
 
     try {
       console.log('[LoginForm] 🔑 Attempting sign in...')
-      const { data, error } = await signIn(email, password)
+      const { data, error } = await signIn(emailOrUsername, password)
       if (error) {
         console.error('[LoginForm] ❌ Sign in failed:', error)
         throw error
@@ -45,17 +45,17 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
           </div>
         )}
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-            Email
+          <label htmlFor="emailOrUsername" className="block text-sm font-medium text-gray-700 mb-1">
+            Username or Email
           </label>
           <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            id="emailOrUsername"
+            type="text"
+            value={emailOrUsername}
+            onChange={(e) => setEmailOrUsername(e.target.value)}
             required
             className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
-            placeholder="your@email.com"
+            placeholder="username or your@email.com"
           />
         </div>
         <div>

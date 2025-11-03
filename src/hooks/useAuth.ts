@@ -37,9 +37,17 @@ export function useAuth() {
     }
   }, [])
 
-  const signUp = async (email: string, password: string) => {
-    console.log('[useAuth] 🔐 Signing up user:', email)
-    const { data, error } = await supabase.auth.signUp({ email, password })
+  const signUp = async (email: string, password: string, username?: string) => {
+    console.log('[useAuth] 🔐 Signing up user:', email, username ? `with username: ${username}` : '')
+    // Disable email confirmation
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: undefined,
+        data: username ? { username } : undefined,
+      },
+    })
     if (error) {
       console.error('[useAuth] ❌ Sign up failed:', error)
       console.error('[useAuth] Error details:', {
@@ -47,24 +55,85 @@ export function useAuth() {
         status: error.status,
       })
     } else {
-      console.log('[useAuth] ✅ Sign up successful:', data.user ? `User ID: ${data.user.id}` : 'Check email for confirmation')
+      console.log('[useAuth] ✅ Sign up successful:', data.user ? `User ID: ${data.user.id}` : 'No user data')
     }
     return { data, error }
   }
 
-  const signIn = async (email: string, password: string) => {
-    console.log('[useAuth] 🔑 Signing in user:', email)
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      console.error('[useAuth] ❌ Sign in failed:', error)
-      console.error('[useAuth] Error details:', {
-        message: error.message,
-        status: error.status,
+  const signIn = async (emailOrUsername: string, password: string) => {
+    console.log('[useAuth] 🔑 Signing in user:', emailOrUsername)
+    
+    // Check if input looks like an email (contains @)
+    const isEmail = emailOrUsername.includes('@')
+    
+    if (isEmail) {
+      // Direct email login
+      const { data, error } = await supabase.auth.signInWithPassword({ 
+        email: emailOrUsername, 
+        password 
       })
+      if (error) {
+        console.error('[useAuth] ❌ Sign in failed:', error)
+        console.error('[useAuth] Error details:', {
+          message: error.message,
+          status: error.status,
+        })
+      } else {
+        console.log('[useAuth] ✅ Sign in successful:', data.user ? `User ID: ${data.user.id}` : 'No user data')
+      }
+      return { data, error }
     } else {
-      console.log('[useAuth] ✅ Sign in successful:', data.user ? `User ID: ${data.user.id}` : 'No user data')
+      // Username login - look up email from profile
+      // Note: We'll need to store email in profiles for this to work
+      // For now, we'll query the profile and use a database function or stored email
+      console.log('[useAuth] 🔍 Looking up profile for username:', emailOrUsername)
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('username', emailOrUsername.trim().toLowerCase())
+        .single()
+      
+      if (profileError || !profile) {
+        console.error('[useAuth] ❌ Username not found:', profileError)
+        return { 
+          data: null, 
+          error: { 
+            message: 'Username not found', 
+            status: 404,
+            name: 'AuthApiError'
+          } as any 
+        }
+      }
+      
+      // Check if profile has email stored (we'll add this during signup)
+      if (!profile.email) {
+        console.error('[useAuth] ❌ Profile found but no email stored')
+        return { 
+          data: null, 
+          error: { 
+            message: 'Could not find account email. Please use your email to log in.', 
+            status: 404,
+            name: 'AuthApiError'
+          } as any 
+        }
+      }
+      
+      // Sign in with the found email
+      const { data, error } = await supabase.auth.signInWithPassword({ 
+        email: profile.email, 
+        password 
+      })
+      if (error) {
+        console.error('[useAuth] ❌ Sign in failed:', error)
+        console.error('[useAuth] Error details:', {
+          message: error.message,
+          status: error.status,
+        })
+      } else {
+        console.log('[useAuth] ✅ Sign in successful:', data.user ? `User ID: ${data.user.id}` : 'No user data')
+      }
+      return { data, error }
     }
-    return { data, error }
   }
 
   const signOut = async () => {

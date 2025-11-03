@@ -3,6 +3,7 @@ import { Navbar } from '@/components/common/Navbar'
 import { Home } from '@/pages/Home'
 import { Map } from '@/pages/Map'
 import { Profile } from '@/pages/Profile'
+import { Auth } from '@/pages/Auth'
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/map" element={<Map />} />
             <Route path="/profile/:username" element={<Profile />} />
+            <Route path="/auth" element={<Auth />} />
           </Routes>
         </main>
       </div>
