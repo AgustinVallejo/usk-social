@@ -211,8 +211,6 @@ export function InteractiveMap({
     []
   )
 
-  // Removed pixelToLatLngDelta - Leaflet handles pan/zoom
-
   // Generate vibrant pastel color for event
   const generatePastelColor = useCallback((eventId: string): string => {
     // Use event ID as seed for consistent colors
@@ -793,8 +791,6 @@ export function InteractiveMap({
     },
     [prepareBlobs]
   )
-
-  // Wheel zoom handled by Leaflet, removed
 
   // Calculate zoom level needed to separate merged blobs
   const calculateZoomForSeparation = useCallback(

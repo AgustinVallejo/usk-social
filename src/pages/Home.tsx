@@ -1,6 +1,5 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useUsername } from '@/hooks/useUsername'
 import { useEvents } from '@/hooks/useEvents'
 import { useSketches } from '@/hooks/useSketches'
 import { SketchUpload } from '@/components/sketch/SketchUpload'
@@ -9,22 +8,95 @@ import { SketchCard } from '@/components/sketch/SketchCard'
 import { SketchModal } from '@/components/sketch/SketchModal'
 import type { Sketch } from '@/lib/types'
 
+// Helper function to format date without timezone issues
+function formatDateOnly(dateStr: string): string {
+  // If it's a date string like "2024-01-15", parse it as local date
+  if (dateStr.includes('-')) {
+    const [year, month, day] = dateStr.split('T')[0].split('-').map(Number)
+    const date = new Date(year, month - 1, day)
+    return date.toLocaleDateString()
+  }
+  // Fallback: extract date components to avoid timezone shift
+  const date = new Date(dateStr)
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).toLocaleDateString()
+}
+
 export function Home() {
-  const { profile } = useUsername()
   const { events } = useEvents()
   const { sketches } = useSketches()
   const navigate = useNavigate()
   const [showCreateEvent, setShowCreateEvent] = useState(false)
   const [showUpload, setShowUpload] = useState(false)
   const [selectedSketch, setSelectedSketch] = useState<Sketch | null>(null)
+  const buttonRef = useRef<HTMLButtonElement | null>(null)
+  const heroSectionRef = useRef<HTMLDivElement | null>(null)
 
   const recentEvents = events.slice(0, 5)
   const recentSketches = sketches.slice(0, 12)
 
+  // Base vibrant color (similar to blob colors - using a vibrant blue/purple)
+  const baseHue = 250 // Purple-blue hue
+  const baseSaturation = 75
+  const baseLightness = 65
+
+  // Update button style based on proximity to button center
+  const updateButtonStyle = (mouseX: number, mouseY: number) => {
+    const button = buttonRef.current
+    if (!button) return
+
+    const rect = button.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+    
+    // Distance from mouse to button center
+    const dx = mouseX - centerX
+    const dy = mouseY - centerY
+    const dist = Math.sqrt(dx * dx + dy * dy)
+    
+    // Max distance for full proximity effect (button diagonal + margin for area around button)
+    const maxDist = Math.sqrt(rect.width * rect.width + rect.height * rect.height) / 2 + 80
+    const proximity = Math.max(0, Math.min(1, 1 - dist / maxDist))
+
+    // Calculate dynamic properties
+    const hueShift = proximity * 40
+    const saturation = Math.min(90, baseSaturation + proximity * 15)
+    const lightness = Math.min(80, baseLightness + proximity * 15)
+    const hue = (baseHue + hueShift) % 360
+    const buttonBg = `hsl(${hue}, ${saturation}%, ${lightness}%)`
+    const glowIntensity = proximity * 30
+    const scale = 1 + proximity * 0.1
+
+    // Update styles directly for instant response
+    button.style.backgroundColor = buttonBg
+    button.style.transform = `scale(${scale})`
+    button.style.boxShadow = `0 0 ${glowIntensity}px ${buttonBg}, 0 4px 20px rgba(0, 0, 0, 0.3)`
+  }
+
+  // Track mouse movement in the hero section area
+  const handleHeroMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    updateButtonStyle(e.clientX, e.clientY)
+  }
+
+  const handleHeroMouseLeave = () => {
+    const button = buttonRef.current
+    if (!button) return
+
+    // Reset to base state
+    const buttonBg = `hsl(${baseHue}, ${baseSaturation}%, ${baseLightness}%)`
+    button.style.backgroundColor = buttonBg
+    button.style.transform = 'scale(1)'
+    button.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.3)'
+  }
+
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <div className="bg-gray-200 border-b border-gray-300 py-20">
+      <div 
+        ref={heroSectionRef}
+        className="bg-gray-200 border-b border-gray-300 py-20"
+        onMouseMove={handleHeroMouseMove}
+        onMouseLeave={handleHeroMouseLeave}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-5xl font-bold mb-4 text-gray-800">Bienvenido a USK Social</h1>
           <p className="text-xl mb-8 text-gray-600">
@@ -39,10 +111,14 @@ export function Home() {
               Crear Evento
             </button>
             <button
+              ref={buttonRef}
               onClick={() => setShowUpload(true)}
-              className="bg-gray-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-700 transition-colors shadow-md"
+              className="text-white px-8 py-4 rounded-lg text-lg font-semibold transition-all duration-200 shadow-lg relative overflow-hidden"
+              style={{
+                backgroundColor: `hsl(${baseHue}, ${baseSaturation}%, ${baseLightness}%)`,
+              }}
             >
-              Subir un Sketch
+              <span className="relative z-10">Subir un Sketch</span>
             </button>
           </div>
         </div>
@@ -139,7 +215,7 @@ export function Home() {
                   )}
                   {event.event_date && (
                     <p className="text-sm text-gray-500">
-                      📅 {new Date(event.event_date).toLocaleDateString()}
+                      📅 {formatDateOnly(event.event_date)}
                     </p>
                   )}
                 </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useUsername } from '@/hooks/useUsername'
 import { useEvents } from '@/hooks/useEvents'
@@ -23,6 +23,9 @@ export function SketchUpload({ onSuccess, onCancel }: SketchUploadProps) {
   const [sketchDate, setSketchDate] = useState(new Date().toISOString().split('T')[0])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const dropZoneRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     // Try to get user's current location
@@ -76,25 +79,56 @@ export function SketchUpload({ onSuccess, onCancel }: SketchUploadProps) {
     }
   }, [selectedEventId, events])
 
+  const processFile = (file: File) => {
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Image size must be less than 10MB')
+      return
+    }
+    if (!file.type.match(/^image\/(jpeg|jpg|png|webp)$/)) {
+      setError('Image must be JPEG, PNG, or WebP format')
+      return
+    }
+    setImageFile(file)
+    setError(null)
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string)
+    }
+    reader.readAsDataURL(file)
+  }
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        setError('Image size must be less than 10MB')
-        return
-      }
-      if (!file.type.match(/^image\/(jpeg|jpg|png|webp)$/)) {
-        setError('Image must be JPEG, PNG, or WebP format')
-        return
-      }
-      setImageFile(file)
-      setError(null)
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string)
-      }
-      reader.readAsDataURL(file)
+      processFile(file)
     }
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+
+    const file = e.dataTransfer.files?.[0]
+    if (file) {
+      processFile(file)
+    }
+  }
+
+  const handleClick = () => {
+    fileInputRef.current?.click()
   }
 
   const validateCoordinates = (lat: string, lng: string): boolean => {
@@ -225,7 +259,7 @@ export function SketchUpload({ onSuccess, onCancel }: SketchUploadProps) {
 
   return (
     <div className="w-full">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800">Upload Sketch</h2>
+      <h2 className="text-2xl font-bold mb-6 text-gray-800">Subir Sketch</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
@@ -235,7 +269,7 @@ export function SketchUpload({ onSuccess, onCancel }: SketchUploadProps) {
 
         <div>
           <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-            Title <span className="text-red-500">*</span>
+            Título <span className="text-red-500">*</span>
           </label>
           <input
             id="title"
@@ -244,13 +278,13 @@ export function SketchUpload({ onSuccess, onCancel }: SketchUploadProps) {
             onChange={(e) => setTitle(e.target.value)}
             required
             className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
-            placeholder="My Urban Sketch"
+            placeholder="Mi dibujito a rapidógrafo"
           />
         </div>
 
         <div>
           <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-            Description
+            Descripción
           </label>
           <textarea
             id="description"
@@ -258,34 +292,122 @@ export function SketchUpload({ onSuccess, onCancel }: SketchUploadProps) {
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
             className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
-            placeholder="Tell us about your sketch..."
+            placeholder="Mientras dibujaba se arrimó un gamín..."
           />
         </div>
 
         <div>
-          <label htmlFor="image" className="block text-sm font-medium text-gray-700 mb-1">
-            Image <span className="text-red-500">*</span>
+          <label htmlFor="image" className="block text-sm font-medium text-gray-700 mb-2">
+            Imagen <span className="text-red-500">*</span>
           </label>
+          
+          {/* Hidden file input */}
           <input
+            ref={fileInputRef}
             id="image"
             type="file"
             accept="image/jpeg,image/jpg,image/png,image/webp"
             onChange={handleImageChange}
             required
-            className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
+            className="hidden"
           />
-          {imagePreview && (
-            <img
-              src={imagePreview}
-              alt="Preview"
-              className="mt-2 max-w-xs rounded-md"
-            />
+
+          {/* Fancy upload area */}
+          {!imagePreview ? (
+            <div
+              ref={dropZoneRef}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={handleClick}
+              className={`
+                relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
+                transition-all duration-300 ease-in-out
+                ${isDragging 
+                  ? 'border-blue-500 bg-blue-50 scale-105 shadow-lg' 
+                  : 'border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100 hover:shadow-md'
+                }
+              `}
+            >
+              {/* Animated background gradient */}
+              <div className="absolute inset-0 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50" />
+              
+              <div className="relative z-10">
+                {/* Upload icon */}
+                <div className="mx-auto w-16 h-16 mb-4 flex items-center justify-center">
+                  <svg 
+                    className={`w-full h-full transition-transform duration-300 ${isDragging ? 'scale-110' : ''}`}
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={1.5} 
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" 
+                    />
+                  </svg>
+                </div>
+                
+                <p className="text-gray-700 font-medium text-lg mb-1">
+                  {isDragging ? 'Suelta la imagen aquí' : 'Arrastra una imagen o haz clic para seleccionar'}
+                </p>
+                <p className="text-gray-500 text-sm">
+                  PNG, JPG, WEBP hasta 10MB
+                </p>
+                
+                {/* Decorative dots */}
+                <div className="flex justify-center mt-4 space-x-2">
+                  <div className="w-2 h-2 bg-gray-300 rounded-full animate-pulse" style={{ animationDelay: '0s' }} />
+                  <div className="w-2 h-2 bg-gray-300 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
+                  <div className="w-2 h-2 bg-gray-300 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }} />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="relative group">
+              {/* Preview with overlay on hover */}
+              <div className="relative rounded-lg overflow-hidden border-2 border-gray-300 shadow-lg">
+                <img
+                  src={imagePreview}
+                  alt="Preview"
+                  className="w-full h-auto max-h-96 object-contain bg-gray-100"
+                />
+                
+                {/* Hover overlay with change button */}
+                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-300 flex items-center justify-center">
+                  <button
+                    type="button"
+                    onClick={handleClick}
+                    className="opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 bg-white text-gray-800 px-6 py-3 rounded-lg font-semibold shadow-lg hover:bg-gray-100"
+                  >
+                    Cambiar Imagen
+                  </button>
+                </div>
+              </div>
+              
+              {/* File info */}
+              {imageFile && (
+                <div className="mt-2 flex items-center justify-between text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded">
+                  <span className="flex items-center">
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    {imageFile.name}
+                  </span>
+                  <span className="text-gray-500">
+                    {(imageFile.size / 1024).toFixed(2)} KB
+                  </span>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
         <div>
           <label htmlFor="event" className="block text-sm font-medium text-gray-700 mb-1">
-            Associate with Event (Optional)
+            Asociar a Evento (Opcional)
           </label>
           <select
             id="event"
@@ -293,7 +415,7 @@ export function SketchUpload({ onSuccess, onCancel }: SketchUploadProps) {
             onChange={(e) => setSelectedEventId(e.target.value)}
             className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
           >
-            <option value="">No event</option>
+            <option value=""></option>
             {events.map((event: Event) => (
               <option key={event.id} value={event.id}>
                 {event.title}
@@ -302,74 +424,6 @@ export function SketchUpload({ onSuccess, onCancel }: SketchUploadProps) {
           </select>
         </div>
 
-        {!selectedEventId && (
-          <>
-            <div>
-              <label htmlFor="sketchDate" className="block text-sm font-medium text-gray-700 mb-1">
-                Sketch Date
-              </label>
-              <input
-                id="sketchDate"
-                type="date"
-                value={sketchDate}
-                onChange={(e) => setSketchDate(e.target.value)}
-                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="latitude" className="block text-sm font-medium text-gray-700 mb-1">
-                  Latitude <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="latitude"
-                  type="number"
-                  step="any"
-                  value={latitude}
-                  onChange={(e) => setLatitude(e.target.value)}
-                  required
-                  min={-90}
-                  max={90}
-                  className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
-                  placeholder="6.2476"
-                />
-              </div>
-              <div>
-                <label htmlFor="longitude" className="block text-sm font-medium text-gray-700 mb-1">
-                  Longitude <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="longitude"
-                  type="number"
-                  step="any"
-                  value={longitude}
-                  onChange={(e) => setLongitude(e.target.value)}
-                  required
-                  min={-180}
-                  max={180}
-                  className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
-                  placeholder="-75.5658"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="locationName" className="block text-sm font-medium text-gray-700 mb-1">
-                Location Name
-              </label>
-              <input
-                id="locationName"
-                type="text"
-                value={locationName}
-                onChange={(e) => setLocationName(e.target.value)}
-                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
-                placeholder="Central Park, NYC"
-              />
-            </div>
-          </>
-        )}
-
         <div className="flex space-x-4">
           {onCancel && (
             <button
@@ -377,7 +431,7 @@ export function SketchUpload({ onSuccess, onCancel }: SketchUploadProps) {
               onClick={onCancel}
               className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 transition-colors"
             >
-              Cancel
+              Cancelar
             </button>
           )}
           <button
@@ -385,7 +439,7 @@ export function SketchUpload({ onSuccess, onCancel }: SketchUploadProps) {
             disabled={loading}
             className="flex-1 bg-gray-700 text-white py-2 px-4 rounded-md hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? 'Uploading...' : 'Upload Sketch'}
+            {loading ? 'Subiendo...' : 'Subir Sketch'}
           </button>
         </div>
       </form>
