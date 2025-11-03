@@ -27,6 +27,7 @@ export function Home() {
   const navigate = useNavigate()
   const [showCreateEvent, setShowCreateEvent] = useState(false)
   const [showUpload, setShowUpload] = useState(false)
+  const [uploadEventId, setUploadEventId] = useState<string | undefined>(undefined)
   const [selectedSketch, setSelectedSketch] = useState<Sketch | null>(null)
   const buttonRef = useRef<HTMLButtonElement | null>(null)
   const heroSectionRef = useRef<HTMLDivElement | null>(null)
@@ -105,14 +106,11 @@ export function Home() {
           </p>
           <div className="space-x-4">
             <button
-              onClick={() => setShowCreateEvent(true)}
-              className="bg-gray-700 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-800 transition-colors shadow-md"
-            >
-              Crear Evento
-            </button>
-            <button
               ref={buttonRef}
-              onClick={() => setShowUpload(true)}
+              onClick={() => {
+                setUploadEventId(undefined)
+                setShowUpload(true)
+              }}
               className="text-white px-8 py-4 rounded-lg text-lg font-semibold transition-all duration-200 shadow-lg relative overflow-hidden"
               style={{
                 backgroundColor: `hsl(${baseHue}, ${baseSaturation}%, ${baseLightness}%)`,
@@ -183,11 +181,16 @@ export function Home() {
             </div>
             <div className="p-6">
               <SketchUpload
+                initialEventId={uploadEventId}
                 onSuccess={() => {
                   setShowUpload(false)
+                  setUploadEventId(undefined)
                   window.location.reload()
                 }}
-                onCancel={() => setShowUpload(false)}
+                onCancel={() => {
+                  setShowUpload(false)
+                  setUploadEventId(undefined)
+                }}
               />
             </div>
           </div>
@@ -198,13 +201,20 @@ export function Home() {
         {/* Featured Meetups */}
         {recentEvents.length > 0 && (
           <section className="mb-12">
-            <h2 className="text-3xl font-bold text-gray-800 mb-6">Encuentros Destacados</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-3xl font-bold text-gray-800">Encuentros Destacados</h2>
+              <button
+                onClick={() => setShowCreateEvent(true)}
+                className="bg-gray-700 text-white px-6 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 transition-colors shadow-md"
+              >
+                Crear Evento
+              </button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {recentEvents.map((event) => (
                 <div
                   key={event.id}
-                  className="bg-gray-100 border border-gray-300 rounded-lg p-6 cursor-pointer hover:bg-gray-200 transition-colors"
-                  onClick={() => navigate(`/map?lat=${event.latitude}&lng=${event.longitude}&zoom=15`)}
+                  className="bg-gray-100 border border-gray-300 rounded-lg p-6 hover:bg-gray-200 transition-colors"
                 >
                   <h3 className="text-xl font-semibold text-gray-800 mb-2">{event.title}</h3>
                   {event.description && (
@@ -214,10 +224,34 @@ export function Home() {
                     <p className="text-sm text-gray-500 mb-2">📍 {event.location_name}</p>
                   )}
                   {event.event_date && (
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 mb-4">
                       📅 {formatDateOnly(event.event_date)}
                     </p>
                   )}
+                  <div className="flex gap-2 mt-4">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setUploadEventId(event.id)
+                        setShowUpload(true)
+                      }}
+                      className="flex-1 text-white px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 shadow-lg relative overflow-hidden hover:scale-105"
+                      style={{
+                        backgroundColor: `hsl(${baseHue}, ${baseSaturation}%, ${baseLightness}%)`,
+                      }}
+                    >
+                      <span className="relative z-10">Subir Sketch</span>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        navigate(`/map?lat=${event.latitude}&lng=${event.longitude}&zoom=15`)
+                      }}
+                      className="flex-1 bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-600 transition-colors"
+                    >
+                      Ver en Mapa
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

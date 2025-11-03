@@ -7,9 +7,10 @@ import type { Event } from '@/lib/types'
 interface SketchUploadProps {
   onSuccess?: () => void
   onCancel?: () => void
+  initialEventId?: string
 }
 
-export function SketchUpload({ onSuccess, onCancel }: SketchUploadProps) {
+export function SketchUpload({ onSuccess, onCancel, initialEventId }: SketchUploadProps) {
   const { profile } = useUsername()
   const { events } = useEvents()
   const [title, setTitle] = useState('')
@@ -19,7 +20,7 @@ export function SketchUpload({ onSuccess, onCancel }: SketchUploadProps) {
   const [latitude, setLatitude] = useState('')
   const [longitude, setLongitude] = useState('')
   const [locationName, setLocationName] = useState('')
-  const [selectedEventId, setSelectedEventId] = useState<string>('')
+  const [selectedEventId, setSelectedEventId] = useState<string>(initialEventId || '')
   const [sketchDate, setSketchDate] = useState(new Date().toISOString().split('T')[0])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -41,6 +42,11 @@ export function SketchUpload({ onSuccess, onCancel }: SketchUploadProps) {
       )
     }
   }, [])
+
+  // Update selectedEventId when initialEventId changes
+  useEffect(() => {
+    setSelectedEventId(initialEventId || '')
+  }, [initialEventId])
 
   // Update fields when event is selected/deselected
   useEffect(() => {

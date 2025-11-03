@@ -90,20 +90,20 @@ export function Navbar() {
               to="/"
               className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
             >
-              Home
+              Inicio
             </Link>
             <Link
               to="/map"
               className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
             >
-              Map
+              Mapa
             </Link>
             {profile && (
               <Link
                 to={`/profile/${profile.username}`}
                 className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
               >
-                Profile
+                Perfil
               </Link>
             )}
           </div>
