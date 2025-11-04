@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useProfile } from '@/hooks/useProfile'
 import { useSelectedGroup } from '@/hooks/useSelectedGroup'
@@ -11,10 +11,14 @@ export function Navbar() {
   const { selectedGroup, setSelectedGroup } = useSelectedGroup()
   const { groups } = useGroups()
   const navigate = useNavigate()
+  const location = useLocation()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [groupDropdownOpen, setGroupDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const groupDropdownRef = useRef<HTMLDivElement>(null)
+  
+  // Hide group selector on Info and Profile pages
+  const shouldHideGroup = location.pathname === '/info' || location.pathname.startsWith('/profile/')
 
   const handleSignOut = async () => {
     const { error } = await signOut()
@@ -64,7 +68,7 @@ export function Navbar() {
             <img src="/logo2.png" alt="USK Social Logo" className="h-10 w-10 object-contain" />
             <div className="flex items-center space-x-2">
               <span className="text-2xl font-bold text-gray-800">USK Social</span>
-              {selectedGroup && (
+              {selectedGroup && !shouldHideGroup && (
                 <div className="relative flex items-center" ref={groupDropdownRef}>
                   <div className="h-6 w-px bg-gray-400 mx-2"></div>
                   <button
