@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
+const USERNAME_STORAGE_KEY = 'usk_username'
+
 interface SignupFormProps {
   onSuccess?: () => void
   onSwitchToLogin?: () => void
@@ -249,6 +251,13 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
               }
 
               console.log('[SignupForm] ✅ Profile updated after conflict:', updatedProfile?.id)
+              
+              // Update localStorage with the username
+              if (updatedProfile?.username) {
+                console.log('[SignupForm] 💾 Updating localStorage with username:', updatedProfile.username)
+                localStorage.setItem(USERNAME_STORAGE_KEY, updatedProfile.username)
+              }
+              
               onSuccess?.()
               setLoading(false)
               return
@@ -266,6 +275,10 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
 
         console.log('[SignupForm] ✅ Profile created:', profileData.id)
       }
+
+      // Update localStorage with the new username
+      console.log('[SignupForm] 💾 Updating localStorage with username:', trimmedUsername.toLowerCase())
+      localStorage.setItem(USERNAME_STORAGE_KEY, trimmedUsername.toLowerCase())
 
       console.log('[SignupForm] ✅ Sign up and profile creation successful!')
 

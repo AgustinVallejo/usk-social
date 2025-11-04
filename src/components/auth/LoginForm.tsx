@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { supabase } from '@/lib/supabaseClient'
+
+const USERNAME_STORAGE_KEY = 'usk_username'
 
 interface LoginFormProps {
   onSuccess?: () => void
@@ -25,7 +28,34 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
         console.error('[LoginForm] ❌ Sign in failed:', error)
         throw error
       }
-      console.log('[LoginForm] ✅ Sign in successful')
+
+      if (!data.user) {
+        throw new Error('Sign in succeeded but no user data returned')
+      }
+
+      console.log('[LoginForm] ✅ Sign in successful, fetching profile...')
+
+      // Fetch the user's profile to get their username
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', data.user.id)
+        .maybeSingle()
+
+      if (profileError) {
+        console.error('[LoginForm] ⚠️ Error fetching profile (non-fatal):', profileError)
+      }
+
+      if (profile?.username) {
+        // Update localStorage with the authenticated user's username
+        console.log('[LoginForm] 💾 Updating localStorage with username:', profile.username)
+        localStorage.setItem(USERNAME_STORAGE_KEY, profile.username)
+      } else {
+        console.log('[LoginForm] ⚠️ No profile found for user, clearing localStorage')
+        localStorage.removeItem(USERNAME_STORAGE_KEY)
+      }
+
+      console.log('[LoginForm] ✅ Login complete')
       onSuccess?.()
     } catch (err: any) {
       console.error('[LoginForm] ❌ Sign in error:', err)

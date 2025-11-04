@@ -92,6 +92,10 @@ export function useAuth() {
       })
     } else {
       console.log('[useAuth] ✅ Sign out successful')
+      // Clear localStorage on logout
+      const USERNAME_STORAGE_KEY = 'usk_username'
+      localStorage.removeItem(USERNAME_STORAGE_KEY)
+      console.log('[useAuth] 💾 Cleared localStorage username')
     }
     return { error }
   }

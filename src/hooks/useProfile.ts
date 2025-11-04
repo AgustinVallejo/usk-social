@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/hooks/useAuth'
 import type { Profile } from '@/lib/types'
 
+const USERNAME_STORAGE_KEY = 'usk_username'
+
 /**
  * Hook to get the authenticated user's profile
  * Replaces the old useUsername hook for authenticated users
@@ -16,6 +18,8 @@ export function useProfile() {
     if (!user) {
       setProfile(null)
       setLoading(false)
+      // Clear localStorage when user logs out
+      localStorage.removeItem(USERNAME_STORAGE_KEY)
       return
     }
 
@@ -82,9 +86,17 @@ export function useProfile() {
             email: data.email,
           })
           setProfile(data)
+          
+          // Sync localStorage with the authenticated user's username
+          if (data.username) {
+            localStorage.setItem(USERNAME_STORAGE_KEY, data.username)
+            console.log('[useProfile] 💾 Synced localStorage with username:', data.username)
+          }
         } else {
           console.log('[useProfile] ⚠️ No profile data returned (null)')
           setProfile(null)
+          // Clear localStorage if no profile found
+          localStorage.removeItem(USERNAME_STORAGE_KEY)
         }
       } catch (err) {
         console.error('[useProfile] ❌ Exception fetching profile:', err)
@@ -110,9 +122,16 @@ export function useProfile() {
         (payload) => {
           console.log('[useProfile] 📡 Profile changed:', payload)
           if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
-            setProfile(payload.new as Profile)
+            const updatedProfile = payload.new as Profile
+            setProfile(updatedProfile)
+            // Sync localStorage when profile is updated
+            if (updatedProfile.username) {
+              localStorage.setItem(USERNAME_STORAGE_KEY, updatedProfile.username)
+              console.log('[useProfile] 💾 Synced localStorage with updated username:', updatedProfile.username)
+            }
           } else if (payload.eventType === 'DELETE') {
             setProfile(null)
+            localStorage.removeItem(USERNAME_STORAGE_KEY)
           }
         }
       )

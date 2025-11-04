@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useProfile } from '@/hooks/useProfile'
 import { useSelectedGroup } from '@/hooks/useSelectedGroup'
@@ -10,14 +10,19 @@ export function Navbar() {
   const { profile, username } = useProfile()
   const { selectedGroup, setSelectedGroup } = useSelectedGroup()
   const { groups } = useGroups()
+  const navigate = useNavigate()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [groupDropdownOpen, setGroupDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const groupDropdownRef = useRef<HTMLDivElement>(null)
 
   const handleSignOut = async () => {
-    await signOut()
+    const { error } = await signOut()
     setDropdownOpen(false)
+    if (!error) {
+      // Redirect to home page after successful logout
+      navigate('/', { replace: true })
+    }
   }
 
   // Close dropdowns when clicking outside
