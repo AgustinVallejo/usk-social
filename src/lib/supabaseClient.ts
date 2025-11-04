@@ -21,10 +21,12 @@ console.log('[Supabase Client] URL:', supabaseUrl.substring(0, 30) + '...')
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Test connection on initialization
-supabase
-  .from('profiles')
-  .select('count', { count: 'exact', head: true })
-  .then(({ data, error }) => {
+void (async () => {
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .select('count', { count: 'exact', head: true })
+    
     if (error) {
       console.error('[Supabase Client] ❌ Connection test failed:', error)
       console.error('[Supabase Client] Error details:', {
@@ -36,8 +38,8 @@ supabase
     } else {
       console.log('[Supabase Client] ✅ Connection successful! Database is reachable.')
     }
-  })
-  .catch((err) => {
+  } catch (err) {
     console.error('[Supabase Client] ❌ Connection test exception:', err)
-  })
+  }
+})()
 

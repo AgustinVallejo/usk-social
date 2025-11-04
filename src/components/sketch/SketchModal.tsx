@@ -1,6 +1,5 @@
 import { useNavigate, Link } from 'react-router-dom'
 import { useUsername } from '@/hooks/useUsername'
-import { supabase } from '@/lib/supabaseClient'
 import type { Sketch } from '@/lib/types'
 
 interface SketchModalProps {
@@ -9,35 +8,37 @@ interface SketchModalProps {
   onUpdate?: () => void
 }
 
-export function SketchModal({ sketch, onClose, onUpdate }: SketchModalProps) {
+export function SketchModal({ sketch, onClose }: SketchModalProps) {
   const { profile } = useUsername()
   const navigate = useNavigate()
   const isOwner = profile?.id === sketch.user_id
 
-  const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this sketch?')) return
-
-    try {
-      // Delete from storage
-      const urlParts = sketch.image_url.split('/')
-      const filePath = urlParts.slice(urlParts.indexOf('sketches') + 1).join('/')
-      await supabase.storage.from('sketches').remove([filePath])
-
-      // Delete from database
-      const { error } = await supabase
-        .from('sketches')
-        .delete()
-        .eq('id', sketch.id)
-
-      if (error) throw error
-
-      onUpdate?.()
-      onClose()
-    } catch (err) {
-      alert('Failed to delete sketch')
-      console.error(err)
-    }
-  }
+  // Note: handleDelete function is defined but not currently used in the UI
+  // Uncomment and add delete button in the UI if needed
+  // const handleDelete = async () => {
+  //   if (!confirm('Are you sure you want to delete this sketch?')) return
+  //
+  //   try {
+  //     // Delete from storage
+  //     const urlParts = sketch.image_url.split('/')
+  //     const filePath = urlParts.slice(urlParts.indexOf('sketches') + 1).join('/')
+  //     await supabase.storage.from('sketches').remove([filePath])
+  //
+  //     // Delete from database
+  //     const { error } = await supabase
+  //       .from('sketches')
+  //       .delete()
+  //       .eq('id', sketch.id)
+  //
+  //     if (error) throw error
+  //
+  //     onUpdate?.()
+  //     onClose()
+  //   } catch (err) {
+  //     alert('Failed to delete sketch')
+  //     console.error(err)
+  //   }
+  // }
 
   const handleViewOnMap = () => {
     if (sketch.latitude && sketch.longitude) {

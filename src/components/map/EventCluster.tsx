@@ -1,4 +1,4 @@
-import { Marker, Popup, CircleMarker } from 'react-leaflet'
+import { Popup, CircleMarker } from 'react-leaflet'
 import { useState, useEffect } from 'react'
 import { SketchMarker } from './SketchMarker'
 import type { Sketch } from '@/lib/types'
