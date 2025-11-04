@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useEvents } from '@/hooks/useEvents'
 import { useSketches } from '@/hooks/useSketches'
@@ -6,7 +6,9 @@ import { SketchUpload } from '@/components/sketch/SketchUpload'
 import { EventCreate } from '@/components/event/EventCreate'
 import { SketchCard } from '@/components/sketch/SketchCard'
 import { SketchModal } from '@/components/sketch/SketchModal'
+import { EventSketchGallery } from '@/components/event/EventSketchGallery'
 import type { Sketch } from '@/lib/types'
+import type { Event } from '@/lib/types'
 
 // Helper function to format date without timezone issues
 function formatDateOnly(dateStr: string): string {
@@ -29,11 +31,23 @@ export function Home() {
   const [showUpload, setShowUpload] = useState(false)
   const [uploadEventId, setUploadEventId] = useState<string | undefined>(undefined)
   const [selectedSketch, setSelectedSketch] = useState<Sketch | null>(null)
+  const [selectedEventGallery, setSelectedEventGallery] = useState<Event | null>(null)
   const buttonRef = useRef<HTMLButtonElement | null>(null)
   const heroSectionRef = useRef<HTMLDivElement | null>(null)
 
   const recentEvents = events.slice(0, 5)
   const recentSketches = sketches.slice(0, 12)
+
+  // Count sketches per event
+  const eventSketchCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    sketches.forEach((sketch) => {
+      if (sketch.event_id) {
+        counts.set(sketch.event_id, (counts.get(sketch.event_id) || 0) + 1)
+      }
+    })
+    return counts
+  }, [sketches])
 
   // Base vibrant color (similar to blob colors - using a vibrant blue/purple)
   const baseHue = 250 // Purple-blue hue
@@ -217,12 +231,22 @@ export function Home() {
               </button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {recentEvents.map((event) => (
+              {recentEvents.map((event) => {
+                const sketchCount = eventSketchCounts.get(event.id) || 0
+                return (
                 <div
                   key={event.id}
-                  className="bg-gray-100 border border-gray-300 rounded-lg p-6 hover:bg-gray-200 transition-colors"
+                  className="bg-gray-100 border border-gray-300 rounded-lg p-6 hover:bg-gray-200 transition-colors cursor-pointer"
+                  onClick={() => setSelectedEventGallery(event)}
                 >
-                  <h3 className="text-xl font-semibold text-gray-800 mb-2">{event.title}</h3>
+                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                    {event.title}
+                    {sketchCount > 0 && (
+                      <span className="text-base font-normal text-gray-600 ml-2">
+                        ({sketchCount})
+                      </span>
+                    )}
+                  </h3>
                   {event.description && (
                     <p className="text-gray-600 mb-4 line-clamp-2">{event.description}</p>
                   )}
@@ -259,7 +283,8 @@ export function Home() {
                     </button>
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           </section>
         )}
@@ -293,6 +318,13 @@ export function Home() {
         <SketchModal
           sketch={selectedSketch}
           onClose={() => setSelectedSketch(null)}
+        />
+      )}
+
+      {selectedEventGallery && (
+        <EventSketchGallery
+          event={selectedEventGallery}
+          onClose={() => setSelectedEventGallery(null)}
         />
       )}
     </div>
