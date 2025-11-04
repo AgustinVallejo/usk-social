@@ -1,44 +1,60 @@
 import { useNavigate, Link } from 'react-router-dom'
-import { useUsername } from '@/hooks/useUsername'
+import { supabase } from '@/lib/supabaseClient'
+import { useAuth } from '@/hooks/useAuth'
 import type { Sketch } from '@/lib/types'
 
 interface SketchModalProps {
   sketch: Sketch
   onClose: () => void
   onUpdate?: () => void
+  onEdit?: (sketch: Sketch) => void
 }
 
-export function SketchModal({ sketch, onClose }: SketchModalProps) {
-  const { profile } = useUsername()
+export function SketchModal({ sketch, onClose, onUpdate, onEdit }: SketchModalProps) {
+  const { user } = useAuth()
   const navigate = useNavigate()
-  const isOwner = profile?.id === sketch.user_id
+  const isOwner = user?.id === sketch.user_id
 
-  // Note: handleDelete function is defined but not currently used in the UI
-  // Uncomment and add delete button in the UI if needed
-  // const handleDelete = async () => {
-  //   if (!confirm('Are you sure you want to delete this sketch?')) return
-  //
-  //   try {
-  //     // Delete from storage
-  //     const urlParts = sketch.image_url.split('/')
-  //     const filePath = urlParts.slice(urlParts.indexOf('sketches') + 1).join('/')
-  //     await supabase.storage.from('sketches').remove([filePath])
-  //
-  //     // Delete from database
-  //     const { error } = await supabase
-  //       .from('sketches')
-  //       .delete()
-  //       .eq('id', sketch.id)
-  //
-  //     if (error) throw error
-  //
-  //     onUpdate?.()
-  //     onClose()
-  //   } catch (err) {
-  //     alert('Failed to delete sketch')
-  //     console.error(err)
-  //   }
-  // }
+  const handleDelete = async () => {
+    if (!confirm('¿Estás seguro de que quieres eliminar este sketch?')) {
+      return
+    }
+
+    try {
+      // Delete from storage
+      const urlParts = sketch.image_url.split('/')
+      const filePath = urlParts.slice(urlParts.indexOf('sketches') + 1).join('/')
+      
+      // Try to delete thumbnail if it exists and is different
+      if (sketch.thumbnail_url && sketch.thumbnail_url !== sketch.image_url) {
+        const thumbParts = sketch.thumbnail_url.split('/')
+        const thumbPath = thumbParts.slice(thumbParts.indexOf('sketches') + 1).join('/')
+        await supabase.storage.from('sketches').remove([thumbPath]).catch(() => {
+          // Ignore thumbnail deletion errors
+        })
+      }
+      
+      await supabase.storage.from('sketches').remove([filePath])
+
+      // Delete from database
+      const { error } = await supabase
+        .from('sketches')
+        .delete()
+        .eq('id', sketch.id)
+
+      if (error) throw error
+
+      onUpdate?.()
+      onClose()
+    } catch (err) {
+      alert('Error al eliminar el sketch')
+      console.error('Error deleting sketch:', err)
+    }
+  }
+
+  const handleEdit = () => {
+    onEdit?.(sketch)
+  }
 
   const handleViewOnMap = () => {
     if (sketch.latitude && sketch.longitude) {
@@ -47,9 +63,18 @@ export function SketchModal({ sketch, onClose }: SketchModalProps) {
     }
   }
 
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) {
+      onClose()
+    }
+  }
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      onClick={handleBackdropClick}
+    >
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="relative">
           <button
             onClick={onClose}
@@ -107,13 +132,31 @@ export function SketchModal({ sketch, onClose }: SketchModalProps) {
             {sketch.latitude && sketch.longitude && (
               <button
                 onClick={handleViewOnMap}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
               >
                 Ver en Mapa
               </button>
             )}
             {isOwner && (
               <>
+                <button
+                  onClick={handleEdit}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Editar
+                </button>
+                <button
+                  onClick={handleDelete}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Eliminar
+                </button>
               </>
             )}
           </div>

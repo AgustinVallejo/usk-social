@@ -2,46 +2,84 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useUsername } from '@/hooks/useUsername'
 import { useEvents } from '@/hooks/useEvents'
+import { MapPicker } from '@/components/common/MapPicker'
 import type { Event } from '@/lib/types'
+import type { Sketch } from '@/lib/types'
 
 interface SketchUploadProps {
   onSuccess?: () => void
   onCancel?: () => void
   initialEventId?: string
+  sketch?: Sketch // For editing mode
 }
 
-export function SketchUpload({ onSuccess, onCancel, initialEventId }: SketchUploadProps) {
+export function SketchUpload({ onSuccess, onCancel, initialEventId, sketch }: SketchUploadProps) {
   const { profile } = useUsername()
   const { events } = useEvents()
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
+  const isEditing = !!sketch
+  
+  const [title, setTitle] = useState(sketch?.title || '')
+  const [description, setDescription] = useState(sketch?.description || '')
   const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [latitude, setLatitude] = useState('')
-  const [longitude, setLongitude] = useState('')
-  const [locationName, setLocationName] = useState('')
-  const [selectedEventId, setSelectedEventId] = useState<string>(initialEventId || '')
-  const [sketchDate, setSketchDate] = useState(new Date().toISOString().split('T')[0])
+  const [imagePreview, setImagePreview] = useState<string | null>(sketch?.image_url || null)
+  const [latitude, setLatitude] = useState(sketch?.latitude || 6.2476)
+  const [longitude, setLongitude] = useState(sketch?.longitude || -75.5658)
+  const [locationName, setLocationName] = useState(sketch?.location_name || '')
+  const [selectedEventId, setSelectedEventId] = useState<string>(sketch?.event_id || initialEventId || '')
+  const [sketchDate, setSketchDate] = useState(sketch?.sketch_date ? sketch.sketch_date.split('T')[0] : new Date().toISOString().split('T')[0])
+  const [city, setCity] = useState('Medellín')
+  const [country, setCountry] = useState('Colombia')
+  const [mapSearchQuery, setMapSearchQuery] = useState<string>('')
+  const [advancedOpen, setAdvancedOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
 
+  // Initialize fields from sketch when editing
   useEffect(() => {
-    // Try to get user's current location
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setLatitude(position.coords.latitude.toString())
-          setLongitude(position.coords.longitude.toString())
-        },
-        () => {
-          // Silently fail if user denies location
+    if (sketch) {
+      setTitle(sketch.title || '')
+      setDescription(sketch.description || '')
+      setImagePreview(sketch.image_url || null)
+      setLatitude(sketch.latitude || 6.2476)
+      setLongitude(sketch.longitude || -75.5658)
+      setLocationName(sketch.location_name || '')
+      setSelectedEventId(sketch.event_id || '')
+      if (sketch.sketch_date) {
+        setSketchDate(sketch.sketch_date.split('T')[0])
+      }
+      // Get city and country from event if sketch has an event
+      if (sketch.event_id) {
+        const event = events.find((e: Event) => e.id === sketch.event_id)
+        if (event) {
+          setCity(event.city || 'Medellín')
+          setCountry(event.country || 'Colombia')
         }
-      )
+      }
+    } else {
+      // Try to get user's current location only when creating new sketch
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            setLatitude(position.coords.latitude)
+            setLongitude(position.coords.longitude)
+          },
+          () => {
+            // Silently fail if user denies location
+          }
+        )
+      }
     }
-  }, [])
+  }, [sketch, events])
+
+  const handleLocationSelect = (lat: number, lng: number) => {
+    setLatitude(lat)
+    setLongitude(lng)
+    // Clear the search trigger after selection
+    setMapSearchQuery('')
+  }
 
   // Update selectedEventId when initialEventId changes
   useEffect(() => {
@@ -58,30 +96,36 @@ export function SketchUpload({ onSuccess, onCancel, initialEventId }: SketchUplo
         if (selectedEvent.event_date) {
           setSketchDate(selectedEvent.event_date.split('T')[0]) // Extract date part if it's a datetime
         }
-        setLatitude(selectedEvent.latitude.toString())
-        setLongitude(selectedEvent.longitude.toString())
+        setLatitude(selectedEvent.latitude)
+        setLongitude(selectedEvent.longitude)
         setLocationName(selectedEvent.location_name || '')
+        setCity(selectedEvent.city || 'Medellín')
+        setCountry(selectedEvent.country || 'Colombia')
       }
+      // Close advanced section when event is selected
+      setAdvancedOpen(false)
     } else {
       // Reset to defaults when no event is selected
       setSketchDate(new Date().toISOString().split('T')[0])
-      // Reset coordinates to user's location if available, otherwise empty
+      // Reset coordinates to user's location if available, otherwise defaults
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
-            setLatitude(position.coords.latitude.toString())
-            setLongitude(position.coords.longitude.toString())
+            setLatitude(position.coords.latitude)
+            setLongitude(position.coords.longitude)
           },
           () => {
-            setLatitude('')
-            setLongitude('')
+            setLatitude(6.2476)
+            setLongitude(-75.5658)
           }
         )
       } else {
-        setLatitude('')
-        setLongitude('')
+        setLatitude(6.2476)
+        setLongitude(-75.5658)
       }
       setLocationName('')
+      setCity('Medellín')
+      setCountry('Colombia')
     }
   }, [selectedEventId, events])
 
@@ -137,16 +181,14 @@ export function SketchUpload({ onSuccess, onCancel, initialEventId }: SketchUplo
     fileInputRef.current?.click()
   }
 
-  const validateCoordinates = (lat: string, lng: string): boolean => {
-    const latNum = parseFloat(lat)
-    const lngNum = parseFloat(lng)
+  const validateCoordinates = (lat: number, lng: number): boolean => {
     return (
-      !isNaN(latNum) &&
-      !isNaN(lngNum) &&
-      latNum >= -90 &&
-      latNum <= 90 &&
-      lngNum >= -180 &&
-      lngNum <= 180
+      !isNaN(lat) &&
+      !isNaN(lng) &&
+      lat >= -90 &&
+      lat <= 90 &&
+      lng >= -180 &&
+      lng <= 180
     )
   }
 
@@ -159,12 +201,13 @@ export function SketchUpload({ onSuccess, onCancel, initialEventId }: SketchUplo
       return
     }
 
-    if (!imageFile) {
+    // Image is required for new uploads, optional for edits
+    if (!isEditing && !imageFile) {
       setError('Please select an image')
       return
     }
 
-    if (!latitude || !longitude || !validateCoordinates(latitude, longitude)) {
+    if (!validateCoordinates(latitude, longitude)) {
       setError('Please provide valid coordinates (latitude: -90 to 90, longitude: -180 to 180)')
       return
     }
@@ -172,90 +215,143 @@ export function SketchUpload({ onSuccess, onCancel, initialEventId }: SketchUplo
     setLoading(true)
 
     try {
-      console.log('[SketchUpload] 📤 Starting sketch upload...')
+      if (isEditing) {
+        console.log('[SketchUpload] ✏️ Starting sketch update...')
+        console.log('[SketchUpload] Sketch ID:', sketch.id)
+      } else {
+        console.log('[SketchUpload] 📤 Starting sketch upload...')
+      }
       console.log('[SketchUpload] Profile ID:', profile.id)
       console.log('[SketchUpload] Title:', title)
-      console.log('[SketchUpload] Image file:', imageFile.name, `(${(imageFile.size / 1024).toFixed(2)} KB)`)
       console.log('[SketchUpload] Coordinates:', latitude, longitude)
       console.log('[SketchUpload] Event ID:', selectedEventId || 'none')
 
-      // Upload image
-      const fileExt = imageFile.name.split('.').pop()
-      const fileName = `${Date.now()}-${Math.random()}.${fileExt}`
-      const filePath = `${profile.id}/${fileName}`
+      let publicUrl = sketch?.image_url || ''
+      let thumbnailUrl = sketch?.thumbnail_url || ''
 
-      console.log('[SketchUpload] 📤 Uploading image to storage...')
-      console.log('[SketchUpload] File path:', filePath)
-      const { error: uploadError } = await supabase.storage
-        .from('sketches')
-        .upload(filePath, imageFile)
+      // Upload new image if provided
+      if (imageFile) {
+        const fileExt = imageFile.name.split('.').pop()
+        const fileName = `${Date.now()}-${Math.random()}.${fileExt}`
+        const filePath = `${profile.id}/${fileName}`
 
-      if (uploadError) {
-        console.error('[SketchUpload] ❌ Storage upload failed:', uploadError)
-        console.error('[SketchUpload] Error details:', {
-          message: uploadError.message,
-        })
-        throw uploadError
+        console.log('[SketchUpload] 📤 Uploading image to storage...')
+        console.log('[SketchUpload] File path:', filePath)
+        const { error: uploadError } = await supabase.storage
+          .from('sketches')
+          .upload(filePath, imageFile)
+
+        if (uploadError) {
+          console.error('[SketchUpload] ❌ Storage upload failed:', uploadError)
+          console.error('[SketchUpload] Error details:', {
+            message: uploadError.message,
+          })
+          throw uploadError
+        }
+
+        console.log('[SketchUpload] ✅ Image uploaded successfully')
+
+        // Get public URL
+        console.log('[SketchUpload] 🔗 Getting public URL...')
+        const { data: { publicUrl: newPublicUrl } } = supabase.storage
+          .from('sketches')
+          .getPublicUrl(filePath)
+        publicUrl = newPublicUrl
+        thumbnailUrl = newPublicUrl // Use same image for thumbnail
+
+        // Delete old image if editing
+        if (isEditing && sketch?.image_url) {
+          try {
+            const urlParts = sketch.image_url.split('/')
+            const oldFilePath = urlParts.slice(urlParts.indexOf('sketches') + 1).join('/')
+            await supabase.storage.from('sketches').remove([oldFilePath])
+            
+            // Delete old thumbnail if different
+            if (sketch.thumbnail_url && sketch.thumbnail_url !== sketch.image_url) {
+              const thumbParts = sketch.thumbnail_url.split('/')
+              const oldThumbPath = thumbParts.slice(thumbParts.indexOf('sketches') + 1).join('/')
+              await supabase.storage.from('sketches').remove([oldThumbPath])
+            }
+          } catch (deleteError) {
+            console.warn('[SketchUpload] ⚠️ Failed to delete old image:', deleteError)
+            // Continue anyway - old image deletion is not critical
+          }
+        }
       }
 
-      console.log('[SketchUpload] ✅ Image uploaded successfully')
-
-      // Get public URL
-      console.log('[SketchUpload] 🔗 Getting public URL...')
-      const { data: { publicUrl } } = supabase.storage
-        .from('sketches')
-        .getPublicUrl(filePath)
-      console.log('[SketchUpload] Public URL:', publicUrl)
-
-      // Create thumbnail (simple - use same image for now, could be improved)
-      const thumbnailUrl = publicUrl
-
-      // Insert sketch record
+      // Prepare sketch data
       const sketchData = {
-        user_id: profile.id,
         title,
         description: description || null,
         image_url: publicUrl,
         thumbnail_url: thumbnailUrl,
-        latitude: parseFloat(latitude),
-        longitude: parseFloat(longitude),
+        latitude: latitude,
+        longitude: longitude,
         location_name: locationName || null,
         event_id: selectedEventId || null,
         sketch_date: sketchDate,
       }
 
-      console.log('[SketchUpload] 💾 Inserting sketch record...')
-      console.log('[SketchUpload] Sketch data:', { ...sketchData, image_url: '...' })
+      if (isEditing) {
+        console.log('[SketchUpload] 💾 Updating sketch record...')
+        console.log('[SketchUpload] Sketch data:', { ...sketchData, image_url: '...' })
 
-      const { data: insertData, error: insertError } = await supabase
-        .from('sketches')
-        .insert(sketchData)
-        .select()
+        const { data: updateData, error: updateError } = await supabase
+          .from('sketches')
+          .update(sketchData)
+          .eq('id', sketch.id)
+          .select()
 
-      if (insertError) {
-        console.error('[SketchUpload] ❌ Database insert failed:', insertError)
-        console.error('[SketchUpload] Error details:', {
-          message: insertError.message,
-          code: insertError.code,
-          details: insertError.details,
-          hint: insertError.hint,
-        })
-        
-        // Handle foreign key constraint violations
-        if (insertError.code === '23503' || insertError.message.includes('foreign key constraint')) {
-          throw new Error('Your profile is not set up correctly. Please complete your profile setup and try again.')
+        if (updateError) {
+          console.error('[SketchUpload] ❌ Database update failed:', updateError)
+          console.error('[SketchUpload] Error details:', {
+            message: updateError.message,
+            code: updateError.code,
+            details: updateError.details,
+            hint: updateError.hint,
+          })
+          throw updateError
         }
-        
-        throw insertError
-      }
 
-      console.log('[SketchUpload] ✅ Sketch uploaded successfully!')
-      console.log('[SketchUpload] Inserted sketch ID:', insertData?.[0]?.id)
+        console.log('[SketchUpload] ✅ Sketch updated successfully!')
+        console.log('[SketchUpload] Updated sketch ID:', updateData?.[0]?.id)
+      } else {
+        console.log('[SketchUpload] 💾 Inserting sketch record...')
+        console.log('[SketchUpload] Sketch data:', { ...sketchData, image_url: '...' })
+
+        const { data: insertData, error: insertError } = await supabase
+          .from('sketches')
+          .insert({
+            ...sketchData,
+            user_id: profile.id,
+          })
+          .select()
+
+        if (insertError) {
+          console.error('[SketchUpload] ❌ Database insert failed:', insertError)
+          console.error('[SketchUpload] Error details:', {
+            message: insertError.message,
+            code: insertError.code,
+            details: insertError.details,
+            hint: insertError.hint,
+          })
+          
+          // Handle foreign key constraint violations
+          if (insertError.code === '23503' || insertError.message.includes('foreign key constraint')) {
+            throw new Error('Your profile is not set up correctly. Please complete your profile setup and try again.')
+          }
+          
+          throw insertError
+        }
+
+        console.log('[SketchUpload] ✅ Sketch uploaded successfully!')
+        console.log('[SketchUpload] Inserted sketch ID:', insertData?.[0]?.id)
+      }
 
       onSuccess?.()
     } catch (err: any) {
-      console.error('[SketchUpload] ❌ Upload failed with exception:', err)
-      const errorMessage = err.message || 'Failed to upload sketch'
+      console.error('[SketchUpload] ❌ Operation failed with exception:', err)
+      const errorMessage = err.message || (isEditing ? 'Failed to update sketch' : 'Failed to upload sketch')
       console.error('[SketchUpload] Error message:', errorMessage)
       setError(errorMessage)
     } finally {
@@ -265,7 +361,7 @@ export function SketchUpload({ onSuccess, onCancel, initialEventId }: SketchUplo
 
   return (
     <div className="w-full">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800">Subir Sketch</h2>
+      <h2 className="text-2xl font-bold mb-6 text-gray-800">{isEditing ? 'Editar Sketch' : 'Subir Sketch'}</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
@@ -304,7 +400,8 @@ export function SketchUpload({ onSuccess, onCancel, initialEventId }: SketchUplo
 
         <div>
           <label htmlFor="image" className="block text-sm font-medium text-gray-700 mb-2">
-            Imagen <span className="text-red-500">*</span>
+            Imagen {!isEditing && <span className="text-red-500">*</span>}
+            {isEditing && <span className="text-gray-500 text-xs ml-2">(Opcional - deja vacío para mantener la imagen actual)</span>}
           </label>
           
           {/* Hidden file input */}
@@ -314,7 +411,7 @@ export function SketchUpload({ onSuccess, onCancel, initialEventId }: SketchUplo
             type="file"
             accept="image/jpeg,image/jpg,image/png,image/webp"
             onChange={handleImageChange}
-            required
+            required={!isEditing}
             className="hidden"
           />
 
@@ -421,7 +518,7 @@ export function SketchUpload({ onSuccess, onCancel, initialEventId }: SketchUplo
             onChange={(e) => setSelectedEventId(e.target.value)}
             className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
           >
-            <option value=""></option>
+            <option value="">Sin Evento</option>
             {events.map((event: Event) => (
               <option key={event.id} value={event.id}>
                 {event.title}
@@ -429,6 +526,128 @@ export function SketchUpload({ onSuccess, onCancel, initialEventId }: SketchUplo
             ))}
           </select>
         </div>
+
+        {/* Advanced Options Accordion - Only shown when no event is selected */}
+        {!selectedEventId && (
+          <div className="border border-gray-300 rounded-md overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setAdvancedOpen(!advancedOpen)}
+              className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between transition-colors"
+            >
+              <span className="text-sm font-medium text-gray-700">Avanzados (Opcional)</span>
+              <svg
+                className={`w-5 h-5 text-gray-500 transition-transform ${advancedOpen ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            {advancedOpen && (
+              <div className="p-4 space-y-4 bg-white border-t border-gray-200">
+                <div>
+                  <label htmlFor="sketchDate" className="block text-sm font-medium text-gray-700 mb-1">
+                    Fecha del Sketch
+                  </label>
+                  <input
+                    id="sketchDate"
+                    type="date"
+                    value={sketchDate}
+                    onChange={(e) => setSketchDate(e.target.value)}
+                    className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="locationName" className="block text-sm font-medium text-gray-700 mb-1">
+                    Nombre del Lugar
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      id="locationName"
+                      type="text"
+                      value={locationName}
+                      onChange={(e) => setLocationName(e.target.value)}
+                      className="flex-1 px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
+                      placeholder="La Candelaria"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && locationName.trim()) {
+                          e.preventDefault()
+                          setMapSearchQuery(locationName)
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (locationName.trim()) {
+                          setMapSearchQuery(locationName)
+                        }
+                      }}
+                      className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors whitespace-nowrap"
+                      title="Buscar ubicación en el mapa"
+                    >
+                      🔍 Buscar
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Ingresa un nombre de lugar y haz clic en Buscar para encontrarlo en el mapa
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Ubicación <span className="text-red-500">*</span>
+                  </label>
+                  <MapPicker
+                    latitude={latitude}
+                    longitude={longitude}
+                    onLocationSelect={handleLocationSelect}
+                    height="300px"
+                    externalSearchQuery={mapSearchQuery}
+                    syncSearchQuery={locationName}
+                    onLocationNameUpdate={setLocationName}
+                  />
+                  <div className="mt-2 text-xs text-gray-500">
+                    Seleccionado: {latitude.toFixed(4)}, {longitude.toFixed(4)}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
+                      Ciudad
+                    </label>
+                    <input
+                      id="city"
+                      type="text"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
+                      placeholder="Medellín"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1">
+                      País
+                    </label>
+                    <input
+                      id="country"
+                      type="text"
+                      value={country}
+                      onChange={(e) => setCountry(e.target.value)}
+                      className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
+                      placeholder="Colombia"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex space-x-4">
           {onCancel && (
@@ -445,7 +664,7 @@ export function SketchUpload({ onSuccess, onCancel, initialEventId }: SketchUplo
             disabled={loading}
             className="flex-1 bg-gray-700 text-white py-2 px-4 rounded-md hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? 'Subiendo...' : 'Subir Sketch'}
+            {loading ? (isEditing ? 'Actualizando...' : 'Subiendo...') : (isEditing ? 'Actualizar Sketch' : 'Subir Sketch')}
           </button>
         </div>
       </form>
