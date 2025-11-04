@@ -5,9 +5,8 @@ import path from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  // Base path for GitHub Pages - set to '/' for local development
-  // Change to '/usk-social/' when deploying to GitHub Pages
-  base: process.env.NODE_ENV === 'production' ? '/usk-social/' : '/',
+  // Base path for custom domain - use root path for usk.social
+  base: '/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
