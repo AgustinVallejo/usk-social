@@ -1,24 +1,27 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { useSelectedGroup } from './useSelectedGroup'
 import type { Event } from '@/lib/types'
 
 export function useEvents() {
+  const { selectedGroup } = useSelectedGroup()
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
-  useEffect(() => {
-    fetchEvents()
-  }, [])
+  const fetchEvents = useCallback(async () => {
+    if (!selectedGroup) return
 
-  const fetchEvents = async () => {
     try {
-      console.log('[useEvents] 📅 Fetching events...')
+      console.log('[useEvents] 📅 Fetching events for group:', selectedGroup.id)
       setLoading(true)
-      const { data, error: fetchError } = await supabase
+      let query = supabase
         .from('events')
         .select('*')
+        .eq('group_id', selectedGroup.id)
         .order('event_date', { ascending: false })
+
+      const { data, error: fetchError } = await query
 
       if (fetchError) {
         console.error('[useEvents] ❌ Error fetching events:', fetchError)
@@ -40,7 +43,16 @@ export function useEvents() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedGroup])
+
+  useEffect(() => {
+    if (selectedGroup) {
+      fetchEvents()
+    } else {
+      setEvents([])
+      setLoading(false)
+    }
+  }, [selectedGroup, fetchEvents])
 
   return { events, loading, error, refetch: fetchEvents }
 }

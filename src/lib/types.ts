@@ -10,6 +10,14 @@ export interface Profile {
   created_at: string
 }
 
+export interface Group {
+  id: string
+  name: string
+  city: string | null
+  country: string | null
+  created_at: string
+}
+
 export interface Event {
   id: string
   title: string
@@ -20,6 +28,7 @@ export interface Event {
   location_name: string | null
   city: string | null
   country: string | null
+  group_id: string | null
   created_by: string | null
   created_at: string
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useUsername } from '@/hooks/useUsername'
+import { useSelectedGroup } from '@/hooks/useSelectedGroup'
 import { MapPicker } from '@/components/common/MapPicker'
 
 interface EventCreateProps {
@@ -10,6 +11,7 @@ interface EventCreateProps {
 
 export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
   const { profile } = useUsername()
+  const { selectedGroup } = useSelectedGroup()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [eventDate, setEventDate] = useState('')
@@ -35,6 +37,11 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
 
     if (!profile) {
       setError('Please set a username first (use the username box in the top-right corner)')
+      return
+    }
+
+    if (!selectedGroup) {
+      setError('Please select a group first')
       return
     }
 
@@ -67,7 +74,8 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
         location_name: locationName || null,
         city: city || null,
         country: country || null,
-          created_by: profile.id,
+        group_id: selectedGroup.id,
+        created_by: profile.id,
       }
 
       console.log('[EventCreate] 💾 Inserting event record...')

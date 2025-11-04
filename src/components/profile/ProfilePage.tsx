@@ -279,7 +279,7 @@ export function ProfilePage() {
                     onClick={() => setIsEditing(true)}
                     className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                   >
-                    Edit Profile
+                    Editar Perfil
                   </button>
                 )}
               </>
