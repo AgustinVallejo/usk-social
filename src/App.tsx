@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route } from 'react-router-dom'
 import { SelectedGroupProvider } from '@/hooks/useSelectedGroup'
 import { Navbar } from '@/components/common/Navbar'
 import { Home } from '@/pages/Home'
@@ -10,7 +10,7 @@ import { Info } from '@/pages/Info'
 function App() {
   return (
     <SelectedGroupProvider>
-      <BrowserRouter>
+      <HashRouter>
         <div className="min-h-screen flex flex-col">
           <Navbar />
           <main className="flex-grow">
@@ -23,7 +23,7 @@ function App() {
             </Routes>
           </main>
         </div>
-      </BrowserRouter>
+      </HashRouter>
     </SelectedGroupProvider>
   )
 }
