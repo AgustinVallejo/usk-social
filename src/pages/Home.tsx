@@ -35,7 +35,6 @@ export function Home() {
   const [selectedSketch, setSelectedSketch] = useState<Sketch | null>(null)
   const [selectedEventGallery, setSelectedEventGallery] = useState<Event | null>(null)
   const buttonRef = useRef<HTMLButtonElement | null>(null)
-  const heroSectionRef = useRef<HTMLDivElement | null>(null)
 
   const recentEvents = events.slice(0, 5)
   const recentSketches = sketches.slice(0, 12)
@@ -64,12 +63,12 @@ export function Home() {
     const rect = button.getBoundingClientRect()
     const centerX = rect.left + rect.width / 2
     const centerY = rect.top + rect.height / 2
-    
+
     // Distance from mouse to button center
     const dx = mouseX - centerX
     const dy = mouseY - centerY
     const dist = Math.sqrt(dx * dx + dy * dy)
-    
+
     // Max distance for full proximity effect (button diagonal + margin for area around button)
     const maxDist = Math.sqrt(rect.width * rect.width + rect.height * rect.height) / 2 + 80
     const proximity = Math.max(0, Math.min(1, 1 - dist / maxDist))
@@ -108,49 +107,41 @@ export function Home() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <div 
-        ref={heroSectionRef}
-        className="bg-gray-200 border-b border-gray-300 py-20"
-        onMouseMove={handleHeroMouseMove}
-        onMouseLeave={handleHeroMouseLeave}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-5xl font-bold mb-4 text-gray-800">Bienvenido a USK Social</h1>
-          <p className="text-xl mb-8 text-gray-600">
-            Un espacio interactivo para compartir y disfrutar nuestras creaciones alrededor del mundo.
-            <br/>Por ahora solo disponible para USK Medellín.
-          </p>
-          <div className="space-x-4">
-            <button
-              ref={buttonRef}
-              onClick={() => {
-                if (!user) {
-                  navigate('/auth')
-                  return
-                }
-                setUploadEventId(undefined)
-                setShowUpload(true)
-              }}
-              className="text-white px-8 py-4 rounded-lg text-lg font-semibold transition-all duration-200 shadow-lg relative overflow-hidden"
-              style={{
-                backgroundColor: `hsl(${baseHue}, ${baseSaturation}%, ${baseLightness}%)`,
-              }}
-            >
-              <span className="relative z-10">Subir un Sketch</span>
-            </button>
-            <button
-              onClick={() => navigate('/map')}
-              className="bg-gray-700 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-800 transition-colors shadow-md"
-            >
-              Ir al Mapa
-            </button>
-          </div>
+      <div className="flex justify-center items-center pt-8 pb-8">
+        <div 
+          className="flex space-x-4"
+          onMouseMove={handleHeroMouseMove}
+          onMouseLeave={handleHeroMouseLeave}
+        >
+          <button
+            ref={buttonRef}
+            onClick={() => {
+              if (!user) {
+                navigate('/auth')
+                return
+              }
+              setUploadEventId(undefined)
+              setShowUpload(true)
+            }}
+            className="text-white px-8 py-4 rounded-lg text-lg font-semibold transition-all duration-200 shadow-lg relative overflow-hidden"
+            style={{
+              backgroundColor: `hsl(${baseHue}, ${baseSaturation}%, ${baseLightness}%)`,
+            }}
+          >
+            <span className="relative z-10">Subir un Sketch</span>
+          </button>
+          <button
+            onClick={() => navigate('/map')}
+            className="bg-gray-700 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-800 transition-colors shadow-md"
+          >
+            Ir al Mapa
+          </button>
         </div>
       </div>
 
       {/* Create Event Modal */}
       {showCreateEvent && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
@@ -158,7 +149,7 @@ export function Home() {
             }
           }}
         >
-          <div 
+          <div
             className="bg-gray-50 rounded-lg max-w-2xl w-full my-12 max-h-[90vh] overflow-y-auto shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
@@ -187,7 +178,7 @@ export function Home() {
 
       {/* Upload Modal */}
       {showUpload && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
@@ -195,7 +186,7 @@ export function Home() {
             }
           }}
         >
-          <div 
+          <div
             className="bg-gray-50 rounded-lg max-w-2xl w-full my-12 max-h-[90vh] overflow-y-auto shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
@@ -274,59 +265,59 @@ export function Home() {
               {recentEvents.map((event) => {
                 const sketchCount = eventSketchCounts.get(event.id) || 0
                 return (
-                <div
-                  key={event.id}
-                  className="bg-gray-100 border border-gray-300 rounded-lg p-6 hover:bg-gray-200 transition-colors cursor-pointer"
-                  onClick={() => setSelectedEventGallery(event)}
-                >
-                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                    {event.title}
-                    {sketchCount > 0 && (
-                      <span className="text-base font-normal text-gray-600 ml-2">
-                        ({sketchCount})
-                      </span>
+                  <div
+                    key={event.id}
+                    className="bg-gray-100 border border-gray-300 rounded-lg p-6 hover:bg-gray-200 transition-colors cursor-pointer"
+                    onClick={() => setSelectedEventGallery(event)}
+                  >
+                    <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                      {event.title}
+                      {sketchCount > 0 && (
+                        <span className="text-base font-normal text-gray-600 ml-2">
+                          ({sketchCount})
+                        </span>
+                      )}
+                    </h3>
+                    {event.description && (
+                      <p className="text-gray-600 mb-4 line-clamp-2">{event.description}</p>
                     )}
-                  </h3>
-                  {event.description && (
-                    <p className="text-gray-600 mb-4 line-clamp-2">{event.description}</p>
-                  )}
-                  {event.location_name && (
-                    <p className="text-sm text-gray-500 mb-2">📍 {event.location_name}</p>
-                  )}
-                  {event.event_date && (
-                    <p className="text-sm text-gray-500 mb-4">
-                      📅 {formatDateOnly(event.event_date)}
-                    </p>
-                  )}
-                  <div className="flex gap-2 mt-4">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (!user) {
-                          navigate('/auth')
-                          return
-                        }
-                        setUploadEventId(event.id)
-                        setShowUpload(true)
-                      }}
-                      className="flex-1 text-white px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 shadow-lg relative overflow-hidden hover:scale-105"
-                      style={{
-                        backgroundColor: `hsl(${baseHue}, ${baseSaturation}%, ${baseLightness}%)`,
-                      }}
-                    >
-                      <span className="relative z-10">Subir Sketch</span>
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        navigate(`/map?lat=${event.latitude}&lng=${event.longitude}&zoom=15`)
-                      }}
-                      className="flex-1 bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-600 transition-colors"
-                    >
-                      Ver en Mapa
-                    </button>
+                    {event.location_name && (
+                      <p className="text-sm text-gray-500 mb-2">📍 {event.location_name}</p>
+                    )}
+                    {event.event_date && (
+                      <p className="text-sm text-gray-500 mb-4">
+                        📅 {formatDateOnly(event.event_date)}
+                      </p>
+                    )}
+                    <div className="flex gap-2 mt-4">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (!user) {
+                            navigate('/auth')
+                            return
+                          }
+                          setUploadEventId(event.id)
+                          setShowUpload(true)
+                        }}
+                        className="flex-1 text-white px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 shadow-lg relative overflow-hidden hover:scale-105"
+                        style={{
+                          backgroundColor: `hsl(${baseHue}, ${baseSaturation}%, ${baseLightness}%)`,
+                        }}
+                      >
+                        <span className="relative z-10">Subir Sketch</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigate(`/map?lat=${event.latitude}&lng=${event.longitude}&zoom=15`)
+                        }}
+                        className="flex-1 bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-600 transition-colors"
+                      >
+                        Ver en Mapa
+                      </button>
+                    </div>
                   </div>
-                </div>
                 )
               })}
             </div>
