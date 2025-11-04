@@ -228,9 +228,33 @@ export function Home() {
       )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Recent Sketches */}
+        {recentSketches.length > 0 && (
+          <section className="mb-12">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-3xl font-bold text-gray-800">Sketches Recientes</h2>
+              <Link
+                to="/map"
+                className="text-gray-700 hover:text-gray-900 font-medium"
+              >
+                Ver todos en el Mapa →
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {recentSketches.map((sketch) => (
+                <SketchCard
+                  key={sketch.id}
+                  sketch={sketch}
+                  onClick={() => setSelectedSketch(sketch)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Featured Meetups */}
         {recentEvents.length > 0 && (
-          <section className="mb-12">
+          <section>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-3xl font-bold text-gray-800">Encuentros Destacados</h2>
               <button
@@ -305,30 +329,6 @@ export function Home() {
                 </div>
                 )
               })}
-            </div>
-          </section>
-        )}
-
-        {/* Recent Sketches */}
-        {recentSketches.length > 0 && (
-          <section>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-3xl font-bold text-gray-800">Sketches Recientes</h2>
-              <Link
-                to="/map"
-                className="text-gray-700 hover:text-gray-900 font-medium"
-              >
-                Ver todos en el Mapa →
-              </Link>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {recentSketches.map((sketch) => (
-                <SketchCard
-                  key={sketch.id}
-                  sketch={sketch}
-                  onClick={() => setSelectedSketch(sketch)}
-                />
-              ))}
             </div>
           </section>
         )}
