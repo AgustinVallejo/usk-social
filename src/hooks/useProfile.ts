@@ -24,24 +24,66 @@ export function useProfile() {
       setLoading(true)
 
       try {
+        // First, check if we can query the table at all
+        const { error: testError } = await supabase
+          .from('profiles')
+          .select('id, username')
+          .limit(1)
+
+        if (testError) {
+          console.error('[useProfile] ❌ Cannot query profiles table:', testError)
+          console.error('[useProfile] This might be an RLS (Row Level Security) issue')
+          console.error('[useProfile] Error code:', testError.code)
+          console.error('[useProfile] Error message:', testError.message)
+          setProfile(null)
+          setLoading(false)
+          return
+        }
+
+        // Now try to get the specific profile
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
-          .single()
+          .maybeSingle()
 
         if (error) {
+          // PGRST116 means no rows returned
           if (error.code === 'PGRST116') {
-            console.log('[useProfile] ⚠️ No profile found for user')
+            console.log('[useProfile] ⚠️ No profile found for user ID:', user.id)
+            // Try to find any profile with this user's email to debug
+            if (user.email) {
+              const { data: emailMatch } = await supabase
+                .from('profiles')
+                .select('id, username, email')
+                .eq('email', user.email)
+                .maybeSingle()
+              if (emailMatch) {
+                console.log('[useProfile] ⚠️ Found profile with matching email but different ID:', emailMatch)
+                console.log('[useProfile] Profile ID in DB:', emailMatch.id)
+                console.log('[useProfile] User ID from auth:', user.id)
+              }
+            }
             setProfile(null)
           } else {
             console.error('[useProfile] ❌ Error fetching profile:', error)
+            console.error('[useProfile] Error details:', {
+              message: error.message,
+              code: error.code,
+              details: error.details,
+              hint: error.hint,
+            })
             setProfile(null)
           }
         } else if (data) {
-          console.log('[useProfile] ✅ Profile found:', data.username)
+          console.log('[useProfile] ✅ Profile found:', {
+            id: data.id,
+            username: data.username,
+            email: data.email,
+          })
           setProfile(data)
         } else {
+          console.log('[useProfile] ⚠️ No profile data returned (null)')
           setProfile(null)
         }
       } catch (err) {

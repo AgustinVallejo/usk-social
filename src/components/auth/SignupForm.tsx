@@ -124,7 +124,7 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
             onChange={(e) => setUsername(e.target.value)}
             required
             className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
-            placeholder="nelSketcher"
+            placeholder="pedroNelGomez"
             pattern="[a-zA-Z0-9_-]{3,20}"
           />
           <p className="text-xs text-gray-500 mt-1">3-20 characters, letters, numbers, underscores, or hyphens</p>
