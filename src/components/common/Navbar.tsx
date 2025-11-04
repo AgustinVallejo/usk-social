@@ -14,8 +14,10 @@ export function Navbar() {
   const location = useLocation()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [groupDropdownOpen, setGroupDropdownOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const groupDropdownRef = useRef<HTMLDivElement>(null)
+  const mobileMenuRef = useRef<HTMLDivElement>(null)
   
   // Hide group selector on Info and Profile pages
   const shouldHideGroup = location.pathname === '/info' || location.pathname.startsWith('/profile/')
@@ -29,25 +31,39 @@ export function Navbar() {
     }
   }
 
-  // Close dropdowns when clicking outside
+  // Close dropdowns and mobile menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node
+      
+      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
         setDropdownOpen(false)
       }
-      if (groupDropdownRef.current && !groupDropdownRef.current.contains(event.target as Node)) {
+      if (groupDropdownRef.current && !groupDropdownRef.current.contains(target)) {
         setGroupDropdownOpen(false)
+      }
+      // Don't close mobile menu if clicking the hamburger button
+      if (mobileMenuOpen && mobileMenuRef.current && !mobileMenuRef.current.contains(target)) {
+        const button = (event.target as HTMLElement).closest('button[aria-label="Toggle menu"]')
+        if (!button) {
+          setMobileMenuOpen(false)
+        }
       }
     }
 
-    if (dropdownOpen || groupDropdownOpen) {
+    if (dropdownOpen || groupDropdownOpen || mobileMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [dropdownOpen, groupDropdownOpen])
+  }, [dropdownOpen, groupDropdownOpen, mobileMenuOpen])
+
+  // Close mobile menu when route changes
+  useEffect(() => {
+    setMobileMenuOpen(false)
+  }, [location.pathname])
 
   // Get avatar initial or use default
   const getAvatarInitial = () => {
@@ -67,18 +83,19 @@ export function Navbar() {
           <Link to="/" className="flex items-center space-x-2">
             <img src={`${import.meta.env.BASE_URL}logo2.png`} alt="USK Social Logo" className="h-10 w-10 object-contain" />
             <div className="flex items-center space-x-2">
-              <span className="text-2xl font-bold text-gray-800">USK Social</span>
+              <span className="text-xl sm:text-2xl font-bold text-gray-800">USK Social</span>
               {selectedGroup && !shouldHideGroup && (
                 <div className="relative flex items-center" ref={groupDropdownRef}>
                   <div className="h-6 w-px bg-gray-400 mx-2"></div>
                   <button
                     onClick={(e) => {
                       e.preventDefault()
+                      e.stopPropagation()
                       setGroupDropdownOpen(!groupDropdownOpen)
                     }}
                     className="flex items-center space-x-1 px-2 py-1 rounded-md hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
                   >
-                    <span className="text-lg font-semibold text-gray-700">{selectedGroup.city || selectedGroup.name}</span>
+                    <span className="text-sm sm:text-lg font-semibold text-gray-700">{selectedGroup.city || selectedGroup.name}</span>
                     <svg
                       className={`w-4 h-4 text-gray-500 transition-transform ${groupDropdownOpen ? 'rotate-180' : ''}`}
                       fill="none"
@@ -121,7 +138,8 @@ export function Navbar() {
             </div>
           </Link>
           
-          <div className="flex items-center space-x-4">
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex md:items-center md:space-x-4">
             <Link
               to="/"
               className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
@@ -203,7 +221,105 @@ export function Navbar() {
               </Link>
             )}
           </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setMobileMenuOpen(!mobileMenuOpen)
+            }}
+            className="md:hidden p-2 rounded-md text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400"
+            aria-label="Toggle menu"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              {mobileMenuOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
         </div>
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div ref={mobileMenuRef} className="md:hidden border-t border-gray-300 py-4">
+            <div className="space-y-1">
+              <Link
+                to="/"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-md text-sm font-medium"
+              >
+                Inicio
+              </Link>
+              <Link
+                to="/map"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-md text-sm font-medium"
+              >
+                🗺️ Mapa
+              </Link>
+              <Link
+                to="/info"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-md text-sm font-medium"
+              >
+                Info
+              </Link>
+              {user ? (
+                profile && username ? (
+                  <div className="border-t border-gray-300 pt-2 mt-2">
+                    <div className="flex items-center space-x-3 px-4 py-2">
+                      <div className="w-8 h-8 rounded-full bg-gray-400 flex items-center justify-center text-white font-semibold text-sm overflow-hidden">
+                        {profile.avatar_url ? (
+                          <img
+                            src={profile.avatar_url}
+                            alt={username}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span>{getAvatarInitial()}</span>
+                        )}
+                      </div>
+                      <span className="text-gray-700 text-sm font-medium">{username}</span>
+                    </div>
+                    <Link
+                      to={`/profile/${profile.username}`}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="block px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-md text-sm"
+                    >
+                      Perfil
+                    </Link>
+                    <button
+                      onClick={() => {
+                        handleSignOut()
+                        setMobileMenuOpen(false)
+                      }}
+                      className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 rounded-md text-sm"
+                    >
+                      Cerrar Sesión
+                    </button>
+                  </div>
+                ) : (
+                  <div className="px-4 py-2 text-gray-500 text-sm">Loading...</div>
+                )
+              ) : (
+                <Link
+                  to="/auth"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-md text-sm font-medium"
+                >
+                  Iniciar Sesión
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </nav>
   )
