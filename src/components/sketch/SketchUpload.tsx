@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useUsername } from '@/hooks/useUsername'
 import { useEvents } from '@/hooks/useEvents'
 import { MapPicker } from '@/components/common/MapPicker'
+import { formatDateOnly } from '@/lib/utils'
 import type { Event } from '@/lib/types'
 import type { Sketch } from '@/lib/types'
 
@@ -521,7 +522,7 @@ export function SketchUpload({ onSuccess, onCancel, initialEventId, sketch }: Sk
             <option value="">Sin Evento</option>
             {events.map((event: Event) => (
               <option key={event.id} value={event.id}>
-                {event.title}
+                {event.event_date ? formatDateOnly(event.event_date) : 'Sin fecha'} - {event.title}
               </option>
             ))}
           </select>
