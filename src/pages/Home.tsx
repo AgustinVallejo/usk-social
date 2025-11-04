@@ -2,6 +2,7 @@ import { useState, useRef, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useEvents } from '@/hooks/useEvents'
 import { useSketches } from '@/hooks/useSketches'
+import { useAuth } from '@/hooks/useAuth'
 import { SketchUpload } from '@/components/sketch/SketchUpload'
 import { EventCreate } from '@/components/event/EventCreate'
 import { SketchCard } from '@/components/sketch/SketchCard'
@@ -26,6 +27,7 @@ function formatDateOnly(dateStr: string): string {
 export function Home() {
   const { events } = useEvents()
   const { sketches } = useSketches()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [showCreateEvent, setShowCreateEvent] = useState(false)
   const [showUpload, setShowUpload] = useState(false)
@@ -122,6 +124,10 @@ export function Home() {
             <button
               ref={buttonRef}
               onClick={() => {
+                if (!user) {
+                  navigate('/auth')
+                  return
+                }
                 setUploadEventId(undefined)
                 setShowUpload(true)
               }}
@@ -156,10 +162,12 @@ export function Home() {
             className="bg-gray-50 rounded-lg max-w-2xl w-full my-12 max-h-[90vh] overflow-y-auto shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 border-b border-gray-300">
+            <div className="p-4 border-b border-gray-300 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800">Crear Evento</h2>
               <button
                 onClick={() => setShowCreateEvent(false)}
-                className="float-right text-gray-500 hover:text-gray-700 text-xl font-bold"
+                className="text-gray-500 hover:text-gray-700 text-2xl font-bold leading-none"
+                aria-label="Cerrar"
               >
                 ✕
               </button>
@@ -191,10 +199,12 @@ export function Home() {
             className="bg-gray-50 rounded-lg max-w-2xl w-full my-12 max-h-[90vh] overflow-y-auto shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 border-b border-gray-300">
+            <div className="p-4 border-b border-gray-300 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800">Subir Sketch</h2>
               <button
                 onClick={() => setShowUpload(false)}
-                className="float-right text-gray-500 hover:text-gray-700 text-xl font-bold"
+                className="text-gray-500 hover:text-gray-700 text-2xl font-bold leading-none"
+                aria-label="Cerrar"
               >
                 ✕
               </button>
@@ -224,7 +234,13 @@ export function Home() {
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-3xl font-bold text-gray-800">Encuentros Destacados</h2>
               <button
-                onClick={() => setShowCreateEvent(true)}
+                onClick={() => {
+                  if (!user) {
+                    navigate('/auth')
+                    return
+                  }
+                  setShowCreateEvent(true)
+                }}
                 className="bg-gray-700 text-white px-6 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 transition-colors shadow-md"
               >
                 Crear Evento
@@ -262,6 +278,10 @@ export function Home() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
+                        if (!user) {
+                          navigate('/auth')
+                          return
+                        }
                         setUploadEventId(event.id)
                         setShowUpload(true)
                       }}

@@ -36,22 +36,22 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
     setError(null)
 
     if (!profile) {
-      setError('Please set a username first (use the username box in the top-right corner)')
+      setError('Por favor configura un nombre de usuario primero (usa la caja de nombre de usuario en la esquina superior derecha)')
       return
     }
 
     if (!selectedGroup) {
-      setError('Please select a group first')
+      setError('Por favor selecciona un grupo primero')
       return
     }
 
     if (!title.trim()) {
-      setError('Please enter an event title')
+      setError('Por favor ingresa un título para el evento')
       return
     }
 
     if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
-      setError('Please select a location on the map')
+      setError('Por favor selecciona una ubicación en el mapa')
       return
     }
 
@@ -96,7 +96,7 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
         
         // Handle foreign key constraint violations
         if (insertError.code === '23503' || insertError.message.includes('foreign key constraint')) {
-          throw new Error('Your profile is not set up correctly. Please complete your profile setup and try again.')
+          throw new Error('Tu perfil no está configurado correctamente. Por favor completa la configuración de tu perfil e intenta de nuevo.')
         }
         
         throw insertError
@@ -104,7 +104,7 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
 
       if (!data || data.length === 0) {
         console.error('[EventCreate] ❌ Event was not created - no data returned')
-        throw new Error('Event was not created. Please check your database permissions.')
+        throw new Error('El evento no fue creado. Por favor verifica los permisos de la base de datos.')
       }
 
       console.log('[EventCreate] ✅ Event created successfully!')
@@ -113,7 +113,7 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
       onSuccess?.()
     } catch (err: any) {
       console.error('[EventCreate] ❌ Event creation failed with exception:', err)
-      const errorMessage = err.message || err.error_description || 'Failed to create event. Please check console for details.'
+      const errorMessage = err.message || err.error_description || 'Error al crear el evento. Por favor revisa la consola para más detalles.'
       console.error('[EventCreate] Error message:', errorMessage)
       setError(errorMessage)
     } finally {
@@ -123,7 +123,7 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
 
   return (
     <div className="w-full">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800">Create Event</h2>
+      <h2 className="text-2xl font-bold mb-6 text-gray-800">Crear Evento</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
@@ -133,7 +133,7 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
 
         <div>
           <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-            Event Title <span className="text-red-500">*</span>
+            Título del Evento <span className="text-red-500">*</span>
           </label>
           <input
             id="title"
@@ -142,13 +142,13 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
             onChange={(e) => setTitle(e.target.value)}
             required
             className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
-            placeholder="Urban Sketching Meetup"
+            placeholder="Encuentro de Urban Sketching"
           />
         </div>
 
         <div>
           <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-            Description
+            Descripción
           </label>
           <textarea
             id="description"
@@ -156,13 +156,13 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
             className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-gray-900"
-            placeholder="Tell us about the event..."
+            placeholder="Cuéntanos sobre el evento..."
           />
         </div>
 
         <div>
           <label htmlFor="eventDate" className="block text-sm font-medium text-gray-700 mb-1">
-            Event Date
+            Fecha del Evento
           </label>
           <input
             id="eventDate"
@@ -175,7 +175,7 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
 
         <div>
           <label htmlFor="locationName" className="block text-sm font-medium text-gray-700 mb-1">
-            Location Name
+            Nombre del Lugar
           </label>
           <div className="flex gap-2">
             <input
@@ -200,19 +200,19 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
                 }
               }}
               className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors whitespace-nowrap"
-              title="Search location on map"
+              title="Buscar ubicación en el mapa"
             >
-              🔍 Search
+              🔍 Buscar
             </button>
           </div>
           <p className="mt-1 text-xs text-gray-500">
-            Enter a location name and click Search to find it on the map
+            Ingresa un nombre de lugar y haz clic en Buscar para encontrarlo en el mapa
           </p>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Location <span className="text-red-500">*</span>
+            Ubicación <span className="text-red-500">*</span>
           </label>
           <MapPicker
             latitude={latitude}
@@ -224,14 +224,14 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
             onLocationNameUpdate={setLocationName}
           />
           <div className="mt-2 text-xs text-gray-500">
-            Selected: {latitude.toFixed(4)}, {longitude.toFixed(4)}
+            Seleccionado: {latitude.toFixed(4)}, {longitude.toFixed(4)}
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
-              City
+              Ciudad
             </label>
             <input
               id="city"
@@ -244,7 +244,7 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
           </div>
           <div>
             <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1">
-              Country
+              País
             </label>
             <input
               id="country"
@@ -264,7 +264,7 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
               onClick={onCancel}
               className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 transition-colors"
             >
-              Cancel
+              Cancelar
             </button>
           )}
           <button
@@ -272,7 +272,7 @@ export function EventCreate({ onSuccess, onCancel }: EventCreateProps) {
             disabled={loading}
             className="flex-1 bg-gray-700 text-white py-2 px-4 rounded-md hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? 'Creating...' : 'Create Event'}
+            {loading ? 'Creando...' : 'Crear Evento'}
           </button>
         </div>
       </form>
