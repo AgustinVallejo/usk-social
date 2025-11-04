@@ -60,7 +60,8 @@ export function Navbar() {
             <div className="flex items-center space-x-2">
               <span className="text-2xl font-bold text-gray-800">USK Social</span>
               {selectedGroup && (
-                <div className="relative" ref={groupDropdownRef}>
+                <div className="relative flex items-center" ref={groupDropdownRef}>
+                  <div className="h-6 w-px bg-gray-400 mx-2"></div>
                   <button
                     onClick={(e) => {
                       e.preventDefault()
@@ -68,7 +69,7 @@ export function Navbar() {
                     }}
                     className="flex items-center space-x-1 px-2 py-1 rounded-md hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
                   >
-                    <span className="text-lg font-semibold text-gray-700">| {selectedGroup.city || selectedGroup.name}</span>
+                    <span className="text-lg font-semibold text-gray-700">{selectedGroup.city || selectedGroup.name}</span>
                     <svg
                       className={`w-4 h-4 text-gray-500 transition-transform ${groupDropdownOpen ? 'rotate-180' : ''}`}
                       fill="none"
@@ -98,7 +99,9 @@ export function Navbar() {
                         >
                           <div className="font-medium">{group.name}</div>
                           {group.city && (
-                            <div className="text-xs text-gray-500">{group.city}</div>
+                            <div className="text-xs text-gray-500">
+                              {group.city}{group.country ? `, ${group.country}` : ''}
+                            </div>
                           )}
                         </button>
                       ))}
@@ -121,6 +124,12 @@ export function Navbar() {
               className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
             >
               🗺️ Mapa
+            </Link>
+            <Link
+              to="/info"
+              className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+            >
+              Info
             </Link>
             {user ? (
               profile && username ? (
@@ -179,9 +188,9 @@ export function Navbar() {
             ) : (
               <Link
                 to="/auth"
-                className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                className="text-blue-600 hover:text-blue-700 px-3 py-2 rounded-md text-sm font-medium transition-colors"
               >
-                Login
+                Iniciar Sesión
               </Link>
             )}
           </div>
