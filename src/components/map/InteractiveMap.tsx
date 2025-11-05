@@ -103,6 +103,7 @@ export function InteractiveMap({
   const [zoom, setZoom] = useState(initialZoom)
   const [events, setEvents] = useState<Map<string, Event>>(new Map())
   const [hoveredBlob, setHoveredBlob] = useState<string | null>(null)
+  const [hoveredOrphanSketch, setHoveredOrphanSketch] = useState<string | null>(null)
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
   const [selectedSketch, setSelectedSketch] = useState<Sketch | null>(null)
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null)
@@ -224,6 +225,28 @@ export function InteractiveMap({
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`
   }, [])
 
+  // Prepare orphan sketches (sketches without events but with location data)
+  const prepareOrphanSketches = useCallback((): Array<{ sketch: Sketch; x: number; y: number }> => {
+    const canvas = canvasRef.current
+    if (!canvas) return []
+
+    const orphanSketches: Array<{ sketch: Sketch; x: number; y: number }> = []
+    
+    sketches.forEach((sketch) => {
+      // Orphan sketch: no event_id but has location data
+      if (!sketch.event_id && sketch.latitude && sketch.longitude) {
+        const [x, y] = latLngToPixel(sketch.latitude, sketch.longitude)
+        
+        // Skip if coordinates are invalid (map not ready or out of bounds)
+        if (x !== -1000 && y !== -1000) {
+          orphanSketches.push({ sketch, x, y })
+        }
+      }
+    })
+
+    return orphanSketches
+  }, [sketches, latLngToPixel])
+
   // Group sketches by event and prepare blob data
   const prepareBlobs = useCallback((): BlobData[] => {
     const sketchesByEvent = new Map<string, Sketch[]>()
@@ -321,8 +344,8 @@ export function InteractiveMap({
     return merged
   }, [sketches, events, latLngToPixel, generatePastelColor, zoom])
 
-  // Check if a point hits any blob
-  const checkBlobHit = useCallback((clientX: number, clientY: number): { blob?: BlobData; sketchId?: string } | null => {
+  // Check if a point hits any blob or orphan sketch
+  const checkBlobHit = useCallback((clientX: number, clientY: number): { blob?: BlobData; sketchId?: string; orphanSketch?: Sketch } | null => {
     const canvas = canvasRef.current
     if (!canvas) return null
     
@@ -331,6 +354,18 @@ export function InteractiveMap({
     const y = clientY - rect.top
     
     const blobs = prepareBlobs()
+    const orphanSketches = prepareOrphanSketches()
+    
+    // Check if clicking on an orphan sketch first (they're smaller, so check them first)
+    for (const { sketch, x: sketchX, y: sketchY } of orphanSketches) {
+      const dx = sketchX - x
+      const dy = sketchY - y
+      const dist = Math.sqrt(dx * dx + dy * dy)
+      
+      if (dist < 15) {
+        return { orphanSketch: sketch }
+      }
+    }
     
     // Check if clicking on a blob
     for (const blob of blobs) {
@@ -360,7 +395,7 @@ export function InteractiveMap({
     }
     
     return null
-  }, [prepareBlobs, selectedEventId, sketchCloudPositions])
+  }, [prepareBlobs, prepareOrphanSketches, selectedEventId, sketchCloudPositions])
 
   // Draw gradient noise blob
   const drawBlob = useCallback(
@@ -443,6 +478,61 @@ export function InteractiveMap({
       
       ctx.putImageData(imageData, x - scaledRadius, y - scaledRadius)
       ctx.restore()
+    },
+    []
+  )
+
+  // Draw orphan sketch bubble (smaller than event blobs)
+  const drawOrphanSketchBubble = useCallback(
+    (
+      ctx: CanvasRenderingContext2D,
+      x: number,
+      y: number,
+      sketch: Sketch,
+      mouseProximity: number
+    ) => {
+      const baseRadius = 15
+      const scale = 1 + mouseProximity * 0.2
+      const scaledRadius = baseRadius * scale
+
+      // Use a neutral color for orphan sketches
+      const color = 'hsl(200, 60%, 70%)'
+      const hslMatch = color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/)
+      
+      if (hslMatch) {
+        const [, h, s, l] = hslMatch
+        const baseHue = parseInt(h)
+        const saturation = parseInt(s)
+        const lightness = parseInt(l)
+        
+        const hueShift = mouseProximity * 40
+        const hue = (baseHue + hueShift) % 360
+        
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, scaledRadius)
+        gradient.addColorStop(0, `hsla(${hue}, ${saturation}%, ${Math.min(lightness + 15, 95)}%, 0.8)`)
+        gradient.addColorStop(0.5, `hsla(${(hue + 20) % 360}, ${saturation + 5}%, ${lightness}%, 0.6)`)
+        gradient.addColorStop(1, `hsla(${hue}, ${saturation}%, ${Math.max(lightness - 10, 60)}%, 0.3)`)
+        
+        ctx.fillStyle = gradient
+        ctx.beginPath()
+        ctx.arc(x, y, scaledRadius, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      // Draw sketch thumbnail if available
+      const imageUrl = sketch.thumbnail_url || sketch.image_url
+      if (imageUrl) {
+        const cachedImg = imageCacheRef.current.get(imageUrl)
+        if (cachedImg && cachedImg.complete) {
+          ctx.save()
+          ctx.beginPath()
+          ctx.arc(x, y, scaledRadius - 2, 0, Math.PI * 2)
+          ctx.clip()
+          const size = scaledRadius * 2 - 4
+          ctx.drawImage(cachedImg, x - size / 2, y - size / 2, size, size)
+          ctx.restore()
+        }
+      }
     },
     []
   )
@@ -628,6 +718,7 @@ export function InteractiveMap({
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
     const blobs = prepareBlobs()
+    const orphanSketches = prepareOrphanSketches()
 
     // Draw all blobs
     blobs.forEach((blob) => {
@@ -661,16 +752,32 @@ export function InteractiveMap({
       }
     })
 
+    // Draw orphan sketches
+    orphanSketches.forEach(({ sketch, x, y }) => {
+      // Calculate mouse proximity effect
+      let mouseProximity = 0
+      if (mousePos) {
+        const dx = x - mousePos.x
+        const dy = y - mousePos.y
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        const maxDist = 100
+        mouseProximity = Math.max(0, 1 - dist / maxDist)
+      }
+
+      drawOrphanSketchBubble(ctx, x, y, sketch, mouseProximity)
+    })
+
     animationFrameRef.current = requestAnimationFrame(render)
-  }, [prepareBlobs, selectedEventId, mousePos, drawBlob, drawSketchCloud])
+  }, [prepareBlobs, prepareOrphanSketches, selectedEventId, mousePos, drawBlob, drawSketchCloud, drawOrphanSketchBubble])
 
   // Update render ref
   useEffect(() => {
     renderRef.current = render
   }, [render])
 
-  // Load and cache images when event is selected
+  // Load and cache images when event is selected or for orphan sketches
   useEffect(() => {
+    // Cache images for selected event sketches
     if (selectedEventId) {
       const selectedBlob = prepareBlobs().find((b) => b.eventId === selectedEventId)
       if (selectedBlob) {
@@ -694,7 +801,28 @@ export function InteractiveMap({
         })
       }
     }
-  }, [selectedEventId, prepareBlobs])
+    
+    // Cache images for orphan sketches
+    const orphanSketches = prepareOrphanSketches()
+    orphanSketches.forEach(({ sketch }) => {
+      const imageUrl = sketch.thumbnail_url || sketch.image_url
+      if (imageUrl && !imageCacheRef.current.has(imageUrl)) {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => {
+          imageCacheRef.current.set(imageUrl, img)
+          // Trigger re-render using ref
+          if (renderRef.current) {
+            if (animationFrameRef.current) {
+              cancelAnimationFrame(animationFrameRef.current)
+            }
+            animationFrameRef.current = requestAnimationFrame(renderRef.current)
+          }
+        }
+        img.src = imageUrl
+      }
+    })
+  }, [selectedEventId, prepareBlobs, prepareOrphanSketches])
 
   // Setup canvas and start render loop
   useEffect(() => {
@@ -766,30 +894,50 @@ export function InteractiveMap({
       const y = e.clientY - rect.top
       setMousePos({ x, y })
 
-      // Check if mouse is over any blob or sketch
+      // Check if mouse is over any blob, orphan sketch, or sketch cloud
       const blobs = prepareBlobs()
+      const orphanSketches = prepareOrphanSketches()
       let foundHover = false
       
-      for (const blob of blobs) {
-        const dx = blob.x - x
-        const dy = blob.y - y
+      // Check orphan sketches first
+      for (const { sketch, x: sketchX, y: sketchY } of orphanSketches) {
+        const dx = sketchX - x
+        const dy = sketchY - y
         const dist = Math.sqrt(dx * dx + dy * dy)
         
-        if (dist < blob.radius) {
-          // Only show hover for single blobs (not merged)
-          if (blob.mergedCount === 1) {
-            setHoveredBlob(blob.eventId)
-            foundHover = true
-          }
+        if (dist < 15) {
+          setHoveredOrphanSketch(sketch.id)
+          setHoveredBlob(null)
+          foundHover = true
           break
+        }
+      }
+      
+      // Check event blobs
+      if (!foundHover) {
+        for (const blob of blobs) {
+          const dx = blob.x - x
+          const dy = blob.y - y
+          const dist = Math.sqrt(dx * dx + dy * dy)
+          
+          if (dist < blob.radius) {
+            // Only show hover for single blobs (not merged)
+            if (blob.mergedCount === 1) {
+              setHoveredBlob(blob.eventId)
+              setHoveredOrphanSketch(null)
+              foundHover = true
+            }
+            break
+          }
         }
       }
 
       if (!foundHover) {
         setHoveredBlob(null)
+        setHoveredOrphanSketch(null)
       }
     },
-    [prepareBlobs]
+    [prepareBlobs, prepareOrphanSketches]
   )
 
   // Calculate zoom level needed to separate merged blobs
@@ -846,11 +994,19 @@ export function InteractiveMap({
         return
       }
 
-      // Prevent map interaction when clicking on blob
+      // Prevent map interaction when clicking on blob or orphan sketch
       e.stopPropagation()
       e.preventDefault()
 
-      const { blob, sketchId } = hit
+      const { blob, sketchId, orphanSketch } = hit
+
+      // If clicking on an orphan sketch
+      if (orphanSketch) {
+        setSelectedSketch(orphanSketch)
+        onSketchClick?.(orphanSketch)
+        return
+      }
+
       if (!blob) return
 
       // If clicking on a sketch in the cloud
@@ -971,18 +1127,39 @@ export function InteractiveMap({
       />
       
       {/* Hover tooltip */}
-      {hoveredBlob && (
-        <div
-          className="absolute pointer-events-none bg-black bg-opacity-75 text-white px-3 py-1 rounded text-sm"
-          style={{
-            left: mousePos ? `${mousePos.x + 10}px` : '0',
-            top: mousePos ? `${mousePos.y + 10}px` : '0',
-            zIndex: 1500, // Above canvas
-          }}
-        >
-          {events.get(hoveredBlob)?.title || 'Event'}
-        </div>
-      )}
+      {hoveredBlob && (() => {
+        const event = events.get(hoveredBlob)
+        const blob = prepareBlobs().find(b => b.eventId === hoveredBlob)
+        const sketchCount = blob?.sketches.length || 0
+        return (
+          <div
+            className="absolute pointer-events-none bg-black bg-opacity-75 text-white px-3 py-1 rounded text-sm"
+            style={{
+              left: mousePos ? `${mousePos.x + 10}px` : '0',
+              top: mousePos ? `${mousePos.y + 10}px` : '0',
+              zIndex: 1500, // Above canvas
+            }}
+          >
+            {event?.title || 'Event'}
+            {sketchCount > 0 && ` (${sketchCount})`}
+          </div>
+        )
+      })()}
+      {hoveredOrphanSketch && (() => {
+        const sketch = sketches.find(s => s.id === hoveredOrphanSketch)
+        return sketch ? (
+          <div
+            className="absolute pointer-events-none bg-black bg-opacity-75 text-white px-3 py-1 rounded text-sm"
+            style={{
+              left: mousePos ? `${mousePos.x + 10}px` : '0',
+              top: mousePos ? `${mousePos.y + 10}px` : '0',
+              zIndex: 1500, // Above canvas
+            }}
+          >
+            {sketch.title}
+          </div>
+        ) : null
+      })()}
 
       {/* Sketch viewer - smaller and less intrusive */}
       {selectedSketch && (
