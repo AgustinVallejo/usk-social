@@ -5,10 +5,17 @@ export function formatDateOnly(dateStr: string | null): string {
   if (dateStr.includes('-')) {
     const [year, month, day] = dateStr.split('T')[0].split('-').map(Number)
     const date = new Date(year, month - 1, day)
-    return date.toLocaleDateString()
+    const dayStr = String(date.getDate()).padStart(2, '0')
+    const monthStr = String(date.getMonth() + 1).padStart(2, '0')
+    const yearStr = date.getFullYear()
+    return `${dayStr}/${monthStr}/${yearStr}`
   }
   // Fallback: extract date components to avoid timezone shift
   const date = new Date(dateStr)
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).toLocaleDateString()
+  const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const dayStr = String(localDate.getDate()).padStart(2, '0')
+  const monthStr = String(localDate.getMonth() + 1).padStart(2, '0')
+  const yearStr = localDate.getFullYear()
+  return `${dayStr}/${monthStr}/${yearStr}`
 }
 

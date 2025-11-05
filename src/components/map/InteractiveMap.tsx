@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { Sketch, Event } from '@/lib/types'
 import { supabase } from '@/lib/supabaseClient'
+import { formatDateOnly } from '@/lib/utils'
 
 interface InteractiveMapProps {
   sketches: Sketch[]
@@ -224,6 +225,35 @@ export function InteractiveMap({
     const lightness = 65 + (hash % 15) // 65-80% - not too bright but more visible
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`
   }, [])
+
+  // Prepare events list with sketch counts
+  const eventsList = useMemo(() => {
+    const sketchesByEvent = new Map<string, Sketch[]>()
+    
+    sketches.forEach((sketch) => {
+      if (sketch.event_id) {
+        if (!sketchesByEvent.has(sketch.event_id)) {
+          sketchesByEvent.set(sketch.event_id, [])
+        }
+        sketchesByEvent.get(sketch.event_id)!.push(sketch)
+      }
+    })
+
+    const eventsArray = Array.from(events.values())
+      .filter(event => sketchesByEvent.has(event.id))
+      .map(event => ({
+        event,
+        sketchCount: sketchesByEvent.get(event.id)?.length || 0
+      }))
+      .sort((a, b) => {
+        // Sort by event_date descending (most recent first)
+        const dateA = a.event.event_date ? new Date(a.event.event_date).getTime() : 0
+        const dateB = b.event.event_date ? new Date(b.event.event_date).getTime() : 0
+        return dateB - dateA
+      })
+
+    return eventsArray
+  }, [sketches, events])
 
   // Prepare orphan sketches (sketches without events but with location data)
   const prepareOrphanSketches = useCallback((): Array<{ sketch: Sketch; x: number; y: number }> => {
@@ -1126,6 +1156,54 @@ export function InteractiveMap({
         }}
       />
       
+      {/* Events list panel */}
+      {eventsList.length > 0 && (
+        <div
+          className="absolute bg-white bg-opacity-95 backdrop-blur-sm rounded-lg shadow-xl border border-gray-200 p-2.5 z-50"
+          style={{
+            width: '260px',
+            maxHeight: '30vh',
+            overflowY: 'auto',
+            right: '1rem',
+            top: '1rem',
+          }}
+        >
+          <h3 className="text-xs font-semibold text-gray-800 mb-1.5 uppercase tracking-wide">Eventos</h3>
+          <div className="space-y-0.5">
+            {eventsList.map(({ event, sketchCount }) => (
+              <div
+                key={event.id}
+                className={`text-xs text-gray-700 cursor-pointer hover:bg-gray-100 rounded px-2 py-1 transition-colors ${
+                  selectedEventId === event.id ? 'bg-gray-200 font-semibold' : ''
+                }`}
+                onClick={() => {
+                  if (selectedEventId === event.id) {
+                    setSelectedEventId(null)
+                  } else {
+                    setSelectedEventId(event.id)
+                    // Center map on event location
+                    if (event.latitude && event.longitude) {
+                      setCenter([event.latitude, event.longitude])
+                      setZoom(Math.max(zoom, 14))
+                    }
+                  }
+                }}
+              >
+                {event.event_date && (
+                  <span className="text-gray-500">
+                    {formatDateOnly(event.event_date)} -{' '}
+                  </span>
+                )}
+                <span className="font-medium">{event.title}</span>
+                {sketchCount > 0 && (
+                  <span className="text-gray-500"> ({sketchCount})</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Hover tooltip */}
       {hoveredBlob && (() => {
         const event = events.get(hoveredBlob)
