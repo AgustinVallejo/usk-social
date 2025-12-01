@@ -38,6 +38,23 @@ export function Home() {
     return counts
   }, [sketches])
 
+  // Get unique users with sketch counts
+  const usersWithSketches = useMemo(() => {
+    const userMap = new Map<string, { username: string; sketchCount: number }>()
+    sketches.forEach((sketch) => {
+      if (sketch.user_id) {
+        const profile = sketch.profiles as any
+        const username = profile?.username || sketch.user_id
+        const current = userMap.get(sketch.user_id) || { username, sketchCount: 0 }
+        userMap.set(sketch.user_id, {
+          username,
+          sketchCount: current.sketchCount + 1,
+        })
+      }
+    })
+    return Array.from(userMap.values()).sort((a, b) => b.sketchCount - a.sketchCount)
+  }, [sketches])
+
   // Base vibrant color (similar to blob colors - using a vibrant blue/purple)
   const baseHue = 250 // Purple-blue hue
   const baseSaturation = 75
@@ -233,9 +250,9 @@ export function Home() {
 
         {/* Featured Meetups */}
         {events.length > 0 && (
-          <section>
+          <section className="mb-12">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-3xl font-bold text-gray-800">Encuentros Destacados</h2>
+              <h2 className="text-3xl font-bold text-gray-800">Encuentros</h2>
               <button
                 onClick={() => {
                   if (!user) {
@@ -271,6 +288,29 @@ export function Home() {
                     </div>
                   )
                 })}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Users */}
+        {usersWithSketches.length > 0 && (
+          <section>
+            <h2 className="text-3xl font-bold text-gray-800 mb-6">Sketchers</h2>
+            <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-4 max-h-[60vh] overflow-y-auto">
+              <div className="space-y-1">
+                {usersWithSketches.map((userData) => (
+                  <Link
+                    key={userData.username}
+                    to={`/profile/${userData.username}`}
+                    className="block text-sm text-gray-700 cursor-pointer hover:bg-gray-100 rounded px-3 py-2 transition-colors"
+                  >
+                    <span className="font-medium">{userData.username}</span>
+                    {userData.sketchCount > 0 && (
+                      <span className="text-gray-500"> ({userData.sketchCount})</span>
+                    )}
+                  </Link>
+                ))}
               </div>
             </div>
           </section>
