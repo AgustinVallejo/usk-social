@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/hooks/useAuth'
@@ -14,6 +15,7 @@ export function SketchModal({ sketch, onClose, onUpdate, onEdit }: SketchModalPr
   const { user } = useAuth()
   const navigate = useNavigate()
   const isOwner = user?.id === sketch.user_id
+  const backdropRef = useRef<HTMLDivElement | null>(null)
 
   const handleDelete = async () => {
     if (!confirm('¿Estás seguro de que quieres eliminar este sketch?')) {
@@ -63,16 +65,23 @@ export function SketchModal({ sketch, onClose, onUpdate, onEdit }: SketchModalPr
     }
   }
 
-  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) {
-      onClose()
-    }
-  }
-
   return (
     <div 
+      ref={backdropRef}
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-      onClick={handleBackdropClick}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) {
+          backdropRef.current?.setAttribute('data-mousedown', 'true')
+        } else {
+          backdropRef.current?.removeAttribute('data-mousedown')
+        }
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && backdropRef.current?.getAttribute('data-mousedown') === 'true') {
+          onClose()
+        }
+        backdropRef.current?.removeAttribute('data-mousedown')
+      }}
     >
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="relative">

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useSketches } from '@/hooks/useSketches'
 import { SketchCard } from '../sketch/SketchCard'
 import { SketchModal } from '../sketch/SketchModal'
@@ -15,17 +15,28 @@ export function EventSketchGallery({ event, onClose }: EventSketchGalleryProps) 
   const { sketches, loading, refetch: refetchSketches } = useSketches()
   const [selectedSketch, setSelectedSketch] = useState<Sketch | null>(null)
   const [editingSketch, setEditingSketch] = useState<Sketch | null>(null)
+  const backdropRef = useRef<HTMLDivElement | null>(null)
+  const editModalRef = useRef<HTMLDivElement | null>(null)
 
   // Filter sketches for this event
   const eventSketches = sketches.filter((sketch) => sketch.event_id === event.id)
 
   return (
     <div 
+      ref={backdropRef}
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
-      onClick={(e) => {
+      onMouseDown={(e) => {
         if (e.target === e.currentTarget) {
+          backdropRef.current?.setAttribute('data-mousedown', 'true')
+        } else {
+          backdropRef.current?.removeAttribute('data-mousedown')
+        }
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && backdropRef.current?.getAttribute('data-mousedown') === 'true') {
           onClose()
         }
+        backdropRef.current?.removeAttribute('data-mousedown')
       }}
     >
       <div 
@@ -84,11 +95,20 @@ export function EventSketchGallery({ event, onClose }: EventSketchGalleryProps) 
       {/* Edit Modal */}
       {editingSketch && (
         <div
+          ref={editModalRef}
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
-          onClick={(e) => {
+          onMouseDown={(e) => {
             if (e.target === e.currentTarget) {
+              editModalRef.current?.setAttribute('data-mousedown', 'true')
+            } else {
+              editModalRef.current?.removeAttribute('data-mousedown')
+            }
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && editModalRef.current?.getAttribute('data-mousedown') === 'true') {
               setEditingSketch(null)
             }
+            editModalRef.current?.removeAttribute('data-mousedown')
           }}
         >
           <div

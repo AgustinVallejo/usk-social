@@ -1,6 +1,6 @@
 import { useSketches } from '@/hooks/useSketches'
 import { InteractiveMap } from '@/components/map/InteractiveMap'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { SketchModal } from '@/components/sketch/SketchModal'
 import { SketchUpload } from '@/components/sketch/SketchUpload'
 import type { Sketch } from '@/lib/types'
@@ -9,6 +9,7 @@ export function Map() {
   const { sketches, loading, refetch: refetchSketches } = useSketches()
   const [selectedSketch, setSelectedSketch] = useState<Sketch | null>(null)
   const [editingSketch, setEditingSketch] = useState<Sketch | null>(null)
+  const editModalRef = useRef<HTMLDivElement | null>(null)
 
   if (loading) {
     return (
@@ -45,11 +46,20 @@ export function Map() {
       {/* Edit Modal */}
       {editingSketch && (
         <div
+          ref={editModalRef}
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
-          onClick={(e) => {
+          onMouseDown={(e) => {
             if (e.target === e.currentTarget) {
+              editModalRef.current?.setAttribute('data-mousedown', 'true')
+            } else {
+              editModalRef.current?.removeAttribute('data-mousedown')
+            }
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && editModalRef.current?.getAttribute('data-mousedown') === 'true') {
               setEditingSketch(null)
             }
+            editModalRef.current?.removeAttribute('data-mousedown')
           }}
         >
           <div

@@ -24,6 +24,9 @@ export function Home() {
   const [editingSketch, setEditingSketch] = useState<Sketch | null>(null)
   const [selectedEventGallery, setSelectedEventGallery] = useState<Event | null>(null)
   const buttonRef = useRef<HTMLButtonElement | null>(null)
+  const createEventModalRef = useRef<HTMLDivElement | null>(null)
+  const uploadModalRef = useRef<HTMLDivElement | null>(null)
+  const editModalRef = useRef<HTMLDivElement | null>(null)
 
   const recentSketches = sketches.slice(0, 12)
 
@@ -147,11 +150,20 @@ export function Home() {
       {/* Create Event Modal */}
       {showCreateEvent && (
         <div
+          ref={createEventModalRef}
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
-          onClick={(e) => {
+          onMouseDown={(e) => {
             if (e.target === e.currentTarget) {
+              createEventModalRef.current?.setAttribute('data-mousedown', 'true')
+            } else {
+              createEventModalRef.current?.removeAttribute('data-mousedown')
+            }
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && createEventModalRef.current?.getAttribute('data-mousedown') === 'true') {
               setShowCreateEvent(false)
             }
+            createEventModalRef.current?.removeAttribute('data-mousedown')
           }}
         >
           <div
@@ -184,11 +196,20 @@ export function Home() {
       {/* Upload Modal */}
       {showUpload && (
         <div
+          ref={uploadModalRef}
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
-          onClick={(e) => {
+          onMouseDown={(e) => {
             if (e.target === e.currentTarget) {
+              uploadModalRef.current?.setAttribute('data-mousedown', 'true')
+            } else {
+              uploadModalRef.current?.removeAttribute('data-mousedown')
+            }
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && uploadModalRef.current?.getAttribute('data-mousedown') === 'true') {
               setShowUpload(false)
             }
+            uploadModalRef.current?.removeAttribute('data-mousedown')
           }}
         >
           <div
@@ -335,11 +356,20 @@ export function Home() {
       {/* Edit Modal */}
       {editingSketch && (
         <div
+          ref={editModalRef}
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
-          onClick={(e) => {
+          onMouseDown={(e) => {
             if (e.target === e.currentTarget) {
+              editModalRef.current?.setAttribute('data-mousedown', 'true')
+            } else {
+              editModalRef.current?.removeAttribute('data-mousedown')
+            }
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && editModalRef.current?.getAttribute('data-mousedown') === 'true') {
               setEditingSketch(null)
             }
+            editModalRef.current?.removeAttribute('data-mousedown')
           }}
         >
           <div
