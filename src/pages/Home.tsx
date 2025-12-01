@@ -25,7 +25,6 @@ export function Home() {
   const [selectedEventGallery, setSelectedEventGallery] = useState<Event | null>(null)
   const buttonRef = useRef<HTMLButtonElement | null>(null)
 
-  const recentEvents = events.slice(0, 5)
   const recentSketches = sketches.slice(0, 12)
 
   // Count sketches per event
@@ -233,7 +232,7 @@ export function Home() {
         )}
 
         {/* Featured Meetups */}
-        {recentEvents.length > 0 && (
+        {events.length > 0 && (
           <section>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-3xl font-bold text-gray-800">Encuentros Destacados</h2>
@@ -250,65 +249,29 @@ export function Home() {
                 Crear Evento
               </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {recentEvents.map((event) => {
-                const sketchCount = eventSketchCounts.get(event.id) || 0
-                return (
-                  <div
-                    key={event.id}
-                    className="bg-gray-100 border border-gray-300 rounded-lg p-6 hover:bg-gray-200 transition-colors cursor-pointer"
-                    onClick={() => setSelectedEventGallery(event)}
-                  >
-                    <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                      {event.title}
-                      {sketchCount > 0 && (
-                        <span className="text-base font-normal text-gray-600 ml-2">
-                          ({sketchCount})
+            <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-4 max-h-[60vh] overflow-y-auto">
+              <div className="space-y-1">
+                {events.map((event) => {
+                  const sketchCount = eventSketchCounts.get(event.id) || 0
+                  return (
+                    <div
+                      key={event.id}
+                      className="text-sm text-gray-700 cursor-pointer hover:bg-gray-100 rounded px-3 py-2 transition-colors"
+                      onClick={() => setSelectedEventGallery(event)}
+                    >
+                      {event.event_date && (
+                        <span className="text-gray-500">
+                          {formatDateOnly(event.event_date)} -{' '}
                         </span>
                       )}
-                    </h3>
-                    {event.description && (
-                      <p className="text-gray-600 mb-4 line-clamp-2">{event.description}</p>
-                    )}
-                    {event.location_name && (
-                      <p className="text-sm text-gray-500 mb-2">📍 {event.location_name}</p>
-                    )}
-                    {event.event_date && (
-                      <p className="text-sm text-gray-500 mb-4">
-                        📅 {formatDateOnly(event.event_date)}
-                      </p>
-                    )}
-                    <div className="flex gap-2 mt-4">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (!user) {
-                            navigate('/auth')
-                            return
-                          }
-                          setUploadEventId(event.id)
-                          setShowUpload(true)
-                        }}
-                        className="flex-1 text-white px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 shadow-lg relative overflow-hidden hover:scale-105"
-                        style={{
-                          backgroundColor: `hsl(${baseHue}, ${baseSaturation}%, ${baseLightness}%)`,
-                        }}
-                      >
-                        <span className="relative z-10">Subir Sketch</span>
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          navigate(`/map?lat=${event.latitude}&lng=${event.longitude}&zoom=15`)
-                        }}
-                        className="flex-1 bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-600 transition-colors"
-                      >
-                        Ver en Mapa
-                      </button>
+                      <span className="font-medium">{event.title}</span>
+                      {sketchCount > 0 && (
+                        <span className="text-gray-500"> ({sketchCount})</span>
+                      )}
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
           </section>
         )}
